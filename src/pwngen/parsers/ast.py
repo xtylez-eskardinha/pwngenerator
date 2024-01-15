@@ -25,12 +25,14 @@ class AST:
         return self._fncalls_cache
 
     def get_func_calls(self, name: str) -> dict:
-        self._fncalls_cache[name] = funcCalls(name).visit(self._ast)
-        print(self._fncalls_cache)
+        funccall = funcCalls(name)
+        funccall.visit(self._ast)
+        self._fncalls_cache[name] = funccall.getFuncCalls()
         return self._fncalls_cache[name]
 
     def get_func_defs(self) -> None:
-        self._fndefs_cache = self._fndefs.visit(self._ast)
+        self._fndefs.visit(self._ast)
+        return self._fndefs.getFuncDefs()
 
 class Pwn:
     def __init__(self, code: AST):
