@@ -19,7 +19,7 @@ void get_input(char *buffer[]) {
 }
 
 void pwnable(){
-   
+   return 0;
 }
 
 int main(){
