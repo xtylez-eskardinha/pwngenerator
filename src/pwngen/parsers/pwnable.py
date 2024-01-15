@@ -102,7 +102,7 @@ class Vulnerabilities(object):
     def checkbofs(self):
         for func in self._bof:
             length = len(self._ast.get_func_calls(func))
-            print(length)
+            # print(length)
 
 # class FormatPwn(Funcs):
 
