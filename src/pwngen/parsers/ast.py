@@ -7,8 +7,6 @@ class AST:
     def __init__(self, file: str):
         self._ast = self._parse_c(file)
         self._fndefs = funcDefs()
-        self._fncalls_cache = {}
-        self._fndefs_cache = {}
 
     def _parse_c(self, file: str):
         try:
@@ -21,14 +19,10 @@ class AST:
     def get_ast(self):
         return self._ast
 
-    def get_cached_calls(self) -> dict:
-        return self._fncalls_cache
-
     def get_func_calls(self, name: str) -> dict:
         funccall = funcCalls(name)
         funccall.visit(self._ast)
-        self._fncalls_cache[name] = funccall.getFuncCalls()
-        return self._fncalls_cache[name]
+        return funccall.getFuncCalls()
 
     def get_func_defs(self) -> None:
         self._fndefs.visit(self._ast)
