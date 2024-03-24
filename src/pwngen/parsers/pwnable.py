@@ -118,7 +118,8 @@ class Vulnerabilities(object):
 
     def checkbofs(self):
         return [
-            func for func in self._bof if len(self._ast.get_func_calls(func)) > 0
+            func for func in self._bof 
+            if len(self._ast.get_func_calls(func)) > 0
         ]
 
         # for func in self._bof:
