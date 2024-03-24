@@ -122,9 +122,6 @@ class Vulnerabilities(object):
             if len(self._ast.get_func_calls(func)) > 0
         ]
 
-        # for func in self._bof:
-        #     vulnerable = len(self._ast.get_func_calls(func)) > 0
-        #     print(func, vulnerable)
 
 # class FormatPwn(Funcs):
 
