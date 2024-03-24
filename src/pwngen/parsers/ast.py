@@ -24,7 +24,7 @@ class AST:
         funccall.visit(self._ast)
         return funccall.getFuncCalls()
 
-    def get_func_defs(self) -> None:
+    def get_func_defs(self) -> list:
         self._fndefs.visit(self._ast)
         return self._fndefs.getFuncDefs()
 
