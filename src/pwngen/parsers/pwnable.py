@@ -1,4 +1,6 @@
 from pwngen.parsers.ast import AST
+from pwngen.parsers.utils import *
+from pycparser import c_parser
 
 # class Funcs(object):
 #     def __init__(self, code: AST):
@@ -7,8 +9,8 @@ from pwngen.parsers.ast import AST
 #     def checkpwn(self):
 #         for danger in self._dangerous:
 #             pass
-        
-        
+
+
 class Vulnerabilities(object):
 
     _dangerous = {
@@ -96,13 +98,32 @@ class Vulnerabilities(object):
         "snprintf"
     ]
 
+    def _parse_vulns(self):
+        return AST("code/vulnerable.c")
+
+    def _vulnlist_to_dict(self, vulns_ast: list) -> dict:
+        return {
+            vuln.decl.name : to_dict(vuln) for vuln in vulns_ast
+        }
+    
+    def _dict_to_ast(self, ast: dict):
+        return from_json(ast)
+
     def __init__(self, ast: AST):
         self._ast = ast
-    
+        self._vulnast = self._parse_vulns()
+        self._vulnfuncslist = self._vulnast.get_func_defs()
+        self._vulnfuncsdict = self._vulnlist_to_dict(self._vulnfuncslist)
+        # print(self._vulnfuncsdict)
+
     def checkbofs(self):
-        for func in self._bof:
-            length = len(self._ast.get_func_calls(func))
-            # print(length)
+        return [
+            func for func in self._bof if len(self._ast.get_func_calls(func)) > 0
+        ]
+
+        # for func in self._bof:
+        #     vulnerable = len(self._ast.get_func_calls(func)) > 0
+        #     print(func, vulnerable)
 
 # class FormatPwn(Funcs):
 
