@@ -28,6 +28,52 @@ class AST:
         self._fndefs.visit(self._ast)
         return self._fndefs.getFuncDefs()
 
+class AstProcessor:
+
+    def _get_declaration_names(self) -> list:
+        returner = []
+        if self._ast['body']['_nodetype'] != "Compound":
+            return []
+        return [ 
+            item['name']
+            for item in self._ast['body']['block_items']
+            if item['_nodetype'] == "Decl"
+        ]
+    
+    def _filter_declarations(self, declarations: list) -> list:
+        returner = {
+            "arrays": [],
+            "vars": []
+        }
+
+        for item in self._ast['body']['block_items']:
+            if item['type']['_nodetype'] == "ArrayDecl":
+                returner['arrays'].append(item)
+            elif item['type']['_nodetype'] == "TypeDecl":
+                returner['vars'].append(item)
+            else:
+                continue
+
+        return returner
+
+    def __init__(self, c_ast: dict):
+        self._ast = c_ast.copy()
+        self._type = self._ast['_nodetype']
+
+    def change_funcname(self, new_name: str):
+        if not self._type == "FuncDef":
+            print("Not a function definition")
+            return False
+        self._ast['decl']['name'] = new_name
+        self._ast['decl']['type']['type']['declname'] = new_name
+        return True
+    
+    def change_buffsize(self, size: int):
+        declarations = self._get_declaration_names()
+        filtered_declarations = self._filter_declarations(declarations)
+        # TODO
+
+
 class Pwn:
     def __init__(self, code: AST):
         self._codeast = code
