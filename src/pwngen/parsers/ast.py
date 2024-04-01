@@ -1,5 +1,6 @@
 # Import external dependencies
 from pycparser import parse_file, c_ast
+from pwngen.parsers.utils import from_dict, to_dict
 from pwngen.parsers.visitors import funcDefs, funcCalls
 
 class AST:
@@ -27,6 +28,12 @@ class AST:
     def get_func_defs(self) -> list:
         self._fndefs.visit(self._ast)
         return self._fndefs.getFuncDefs()
+    
+    def to_dict(self) -> dict:
+        return to_dict(self._ast)
+    
+    def from_dict(self, ast: dict):
+        self._ast = from_dict(ast)
 
 class AstProcessor:
 
@@ -71,6 +78,8 @@ class AstProcessor:
     def change_buffsize(self, size: int):
         declarations = self._get_declaration_names()
         filtered_declarations = self._filter_declarations(declarations)
+        for decl in filtered_declarations.get('arrays', []):
+            print(decl)
         # TODO
 
 
