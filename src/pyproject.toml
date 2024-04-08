@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pycparser = "^2.21"
+pycparser = "^2.22"
 
 
 [build-system]
