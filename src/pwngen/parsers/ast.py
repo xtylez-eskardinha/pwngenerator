@@ -15,8 +15,12 @@ class AST:
             ast = parse_file(
                 file,
                 use_cpp=True,
-                cpp_args=['-Iutils/fake_libc_include']
-                )
+                cpp_args=[
+                    '-E',
+                    '-nostdinc',
+                    '-Iutils/fake_libc_include',
+                ],
+            )
             return ast
         except Exception as e:
             print("Couldn't parse file...", e)
@@ -35,7 +39,7 @@ class AST:
         return self._fndefs.getFuncDefs()
     
     def to_dict(self) -> dict:
-        return self._jsonast
+        return self._astjson
     
     def from_dict(self, ast: dict):
         self._ast = from_dict(ast)
@@ -95,6 +99,10 @@ class AstProcessor(AST):
             for x in self._get_fn_defs() 
         }
 
+    def generate_code(self) -> dict:
+        _, code = self._split_datatypes()
+        return code
+
     def _get_fn_name(self, block: dict) -> str:
         return block.get('decl', {}).get('name')
     
@@ -113,6 +121,9 @@ class AstProcessor(AST):
                 continue
 
         return returner
+
+    def get_all_fns(self) -> dict:
+        return self._parse_all_fn()
 
     def change_funcname(self, new_name: str):
         if not self._type == "FuncDef":
