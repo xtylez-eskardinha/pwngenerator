@@ -49,6 +49,8 @@ class AstProcessor(AST):
     def __init__(self, file: str):
         super().__init__(file)
         self._typedefs, self._code = self._split_datatypes()
+        self._funcs = self._get_fn_defs()
+        self._globals = self._get_globals()
 
     def _split_datatypes(self) -> tuple[list, list]:
         typedefs = []
@@ -68,7 +70,31 @@ class AstProcessor(AST):
             for x in self._code
             if x['_nodetype'] == "FuncDef"
         }
-    
+
+    def _get_globals(self) -> dict:
+        results = {
+            'structs' : {},
+            'vars' : {}
+        }
+
+        results['structs'] = {
+            x['type']['name'] : x
+            for x in self._code
+            if x['_nodetype'] == "Decl" 
+            and
+            x['type']['_nodetype'] == "Struct"
+        }
+
+        results['vars'] = {
+            x['name'] : x
+            for x in self._code
+            if x['_nodetype'] == "Decl" 
+            and
+            x['type']['_nodetype'] != "Struct"
+        }
+        
+        return results
+
     def _parse_fn(self, block: dict) -> dict:
         returner = {
             "type" : [],
@@ -106,16 +132,17 @@ class AstProcessor(AST):
     def _get_fn_name(self, block: dict) -> str:
         return block.get('decl', {}).get('name')
     
-    def _filter_declarations(self, declarations: list) -> list:
+    def _filter_declarations(self, func: dict) -> dict:
         returner = {
             "arrays": [],
             "vars": []
         }
 
-        for item in self._ast['body']['block_items']:
-            if item['type']['_nodetype'] == "ArrayDecl":
+        for item in func['body']['block_items']:
+            nodetype = item.get('type', {}).get('_nodetype', '')
+            if nodetype == "ArrayDecl":
                 returner['arrays'].append(item)
-            elif item['type']['_nodetype'] == "TypeDecl":
+            elif nodetype == "TypeDecl":
                 returner['vars'].append(item)
             else:
                 continue
@@ -125,19 +152,31 @@ class AstProcessor(AST):
     def get_all_fns(self) -> dict:
         return self._parse_all_fn()
 
-    def change_funcname(self, new_name: str):
-        if not self._type == "FuncDef":
-            print("Not a function definition")
+    def change_funcname(self, func_name: str, new_name: str) -> bool:
+        if not func_name in self._funcs:
             return False
-        self._ast['decl']['name'] = new_name
-        self._ast['decl']['type']['type']['declname'] = new_name
+        else:
+            changer = self._funcs[func_name]
+        changer['decl']['name'] = new_name
+        changer['decl']['type']['type']['declname'] = new_name
+        self._funcs[new_name] = self._funcs[func_name]
+        self._funcs.pop(func_name, None)
         return True
     
-    def change_buffsize(self, size: int):
-        declarations = self._get_declaration_names()
-        filtered_declarations = self._filter_declarations(declarations)
-        for decl in filtered_declarations.get('arrays', []):
-            print(decl)
+    def change_buffsize(self, func_name: str, var_name: str, size: int):
+        
+        if not func_name in self._funcs:
+            return False
+
+        func = self._funcs.get(func_name)
+        filtered_declarations = self._filter_declarations(func)
+        
+        buff = [
+            decl for decl in filtered_declarations.get('arrays')
+        ]
+        # for decl in filtered_declarations.get('arrays', []):
+        #     print(json.dumps(decl))
+        print(json.dumps(buff))
         # TODO
 
 
