@@ -55,20 +55,18 @@ class AstProcessor(AST):
     def _split_datatypes(self) -> tuple[list, list]:
         typedefs = []
         code = []
-
-        for x in self._astjson['ext']:
-            if x['_nodetype'] == "Typedef":
+        for x in self._ast.ext:
+            if isinstance(x, c_ast.Typedef):
                 typedefs.append(x)
             else:
                 code.append(x)
-
         return typedefs, code
 
     def _get_fn_defs(self) -> dict:
         return {
             self._get_fn_name(x) : x
-            for x in self._code
-            if x['_nodetype'] == "FuncDef"
+            for x in self._ast
+            if isinstance(x, c_ast.FuncDef)
         }
 
     def _get_globals(self) -> dict:
@@ -78,42 +76,42 @@ class AstProcessor(AST):
         }
 
         results['structs'] = {
-            x['type']['name'] : x
+            x.type.name : x
             for x in self._code
-            if x['_nodetype'] == "Decl" 
+            if isinstance(x, c_ast.Decl)
             and
-            x['type']['_nodetype'] == "Struct"
+            isinstance(x.type, c_ast.Struct)
         }
 
         results['vars'] = {
-            x['name'] : x
+            x.name : x
             for x in self._code
-            if x['_nodetype'] == "Decl" 
+            if isinstance(x, c_ast.Decl) 
             and
-            x['type']['_nodetype'] != "Struct"
+            not isinstance(x, c_ast.Struct)
         }
-        
+
         return results
 
-    def _parse_fn(self, block: dict) -> dict:
+    def _parse_fn(self, block: c_ast.FuncDef) -> dict:
         returner = {
             "type" : [],
             "params" : {},
             "code" : []
         }
 
-        decl_body = block['body']
-        decl_type = block['decl']['type']
-        if not isinstance(decl_type['args'], type(None)):
-            decl_params = decl_type.get('args', {}).get('params', [])
+        decl_body = block.body
+        decl_type = block.decl.type
+        if decl_type.args is not None:
+            decl_params = decl_type.args.params
         else:
             decl_params = []
-        returner['type'] = decl_type['type']['type']['names']
+        returner['type'] = decl_type.type.type.names
         returner['params'] = {
-            x['name']: x
+            x.name: x
             for x in decl_params
         }
-        returner['code'] = decl_body.get('block_items', [])
+        returner['code'] = decl_body.block_items
 
         return returner
 
@@ -129,25 +127,27 @@ class AstProcessor(AST):
         _, code = self._split_datatypes()
         return code
 
-    def _get_fn_name(self, block: dict) -> str:
-        return block.get('decl', {}).get('name')
-    
-    def _filter_declarations(self, func: dict) -> dict:
+    def _get_fn_name(self, block: c_ast.FuncDef) -> str:
+        return block.decl.name
+
+    def _filter_fn_declarations(self, func: c_ast.FuncDef) -> dict:
         returner = {
-            "arrays": [],
-            "vars": []
+            "arrays": {},
+            "vars": {}
         }
 
-        for item in func['body']['block_items']:
-            nodetype = item.get('type', {}).get('_nodetype', '')
-            if nodetype == "ArrayDecl":
-                returner['arrays'].append(item)
-            elif nodetype == "TypeDecl":
-                returner['vars'].append(item)
+        for item in func.body.block_items:
+            if isinstance(item, c_ast.Decl):
+                if isinstance(item.type, c_ast.TypeDecl):
+                    returner['vars'][item.name] = item
+                elif isinstance(item.type, c_ast.ArrayDecl):
+                    returner['arrays'][item.name] = item
             else:
                 continue
-
         return returner
+
+    def _get_func_calls(self) -> dict:
+        
 
     def get_all_fns(self) -> dict:
         return self._parse_all_fn()
@@ -157,8 +157,8 @@ class AstProcessor(AST):
             return False
         else:
             changer = self._funcs[func_name]
-        changer['decl']['name'] = new_name
-        changer['decl']['type']['type']['declname'] = new_name
+        changer.decl.name = new_name
+        changer.decl.type.type.declname = new_name
         self._funcs[new_name] = self._funcs[func_name]
         self._funcs.pop(func_name, None)
         return True
@@ -178,6 +178,12 @@ class AstProcessor(AST):
         #     print(json.dumps(decl))
         print(json.dumps(buff))
         # TODO
+
+    def get_fn_defs(self) -> dict:
+        return self._funcs
+
+    def count_references(self) -> dict:
+        returner = {}
 
 
 class Pwn:
