@@ -14,77 +14,51 @@ from pycparser import c_parser
 class Vulnerabilities(object):
 
     _dangerous = {
-        "gets": {
-            "args": 1,
-            "out":0
-        },
-        "gets_s": {
-            "args": 2,
-            "out":0,
-            "size":1
-        },
-        "strcpy": {
-            "args": 2,
-            "out":0,
-            "in":1
-        },
+        "gets": {"args": 1, "out": 0},
+        "gets_s": {"args": 2, "out": 0, "size": 1},
+        "strcpy": {"args": 2, "out": 0, "in": 1},
         "strcat": {
             "args": 2,
-            "out":0,
-            "in":1,
-            "custom": [
-                "bof_append_from_in_to_out"
-            ]
+            "out": 0,
+            "in": 1,
+            "custom": ["bof_append_from_in_to_out"],
         },
         "sprintf": {
             "args": -1,
             "out": 0,
             "in": 1,
-            "custom": [
-                "bof_save_from_in_to_out",
-                "format_if_in_size_less_args"
-            ]
+            "custom": ["bof_save_from_in_to_out", "format_if_in_size_less_args"],
         },
         "snprintf": {
             "args": -1,
             "out": 0,
-            "size":1,
-            "in":2,
-            "custom": [
-                "bof_save_from_in_to_out",
-                "format_if_in_size_less_args"
-            ]
+            "size": 1,
+            "in": 2,
+            "custom": ["bof_save_from_in_to_out", "format_if_in_size_less_args"],
         },
         # "vsprintf": {
-
         # },
         # "vsnprintf",
         "scanf": {
-            "args":2,
+            "args": 2,
             "in": 0,
             "out": 1,
-            "custom": [
-                "bof_if_out_size_less_in_size"
-            ]
+            "custom": ["bof_if_out_size_less_in_size"],
         },
-        "strncat":{
-            "args":3,
+        "strncat": {
+            "args": 3,
             "in": 0,
-            "out":1,
-            "size":2,
-            "custom": [
-                "bof_append_from_in_to_out_if_in_size_less_out_size"
-            ]
+            "out": 1,
+            "size": 2,
+            "custom": ["bof_append_from_in_to_out_if_in_size_less_out_size"],
         },
         "strncpy": {
             "args": 3,
-            "out":0,
+            "out": 0,
             "in": 1,
-            "size":2,
-            "custom": [
-                "bof_if_out_size_less_size"
-            ]
-        }
+            "size": 2,
+            "custom": ["bof_if_out_size_less_size"],
+        },
     }
 
     _bof = [
@@ -95,17 +69,15 @@ class Vulnerabilities(object):
         "strncat",
         "strcat",
         "strncpy",
-        "snprintf"
+        "snprintf",
     ]
 
     def _parse_vulns(self):
         return AST("code/vulnerable.c")
 
     def _vulnlist_to_dict(self, vulns_ast: list) -> dict:
-        return {
-            vuln.decl.name : to_dict(vuln) for vuln in vulns_ast
-        }
-    
+        return {vuln.decl.name: to_dict(vuln) for vuln in vulns_ast}
+
     def _dict_to_ast(self, ast: dict):
         return from_json(ast)
 
@@ -117,10 +89,10 @@ class Vulnerabilities(object):
         # print(self._vulnfuncsdict)
 
     def checkbofs(self):
-        return [
-            func for func in self._bof 
-            if len(self._ast.get_func_calls(func)) > 0
-        ]
+        return [func for func in self._bof if len(self._ast.get_func_calls(func)) > 0]
+
+    def get_function_bofs(self, function: str) -> dict:
+        return self._ast.get_func_calls(function)
 
 
 # class FormatPwn(Funcs):

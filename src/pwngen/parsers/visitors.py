@@ -1,8 +1,9 @@
 # Import external dependencies
 from pycparser import c_ast
 
+
 class funcDefs(c_ast.NodeVisitor):
-    
+
     def __init__(self):
         self._fncdefs = []
 
@@ -14,16 +15,17 @@ class funcDefs(c_ast.NodeVisitor):
     def getFuncDefs(self) -> list:
         return self._fncdefs
 
+
 class funcCalls(c_ast.NodeVisitor):
-    def __init__(self, funcname):
-        self.funcname = funcname
+    def __init__(self):
         self._funccalls = []
 
     def visit_FuncCall(self, node):
-        if node.name.name == self.funcname:
-            # print('%s called at %s' % (self.funcname, node.name.coord))
-            self._funccalls.append(node)
-            # print(node)
+        # if node.name.name not in self._funccalls:
+        #     self._funccalls[node.name.name] = []
+
+        self._funccalls.append(node)
+        # print(node)
         # Visit args in case they contain more func calls.
         if node.args:
             self.visit(node.args)
@@ -31,6 +33,9 @@ class funcCalls(c_ast.NodeVisitor):
         # return dict(node)
         # display(node.decl)
         # display(node.body)
-    
-    def getFuncCalls(self) -> list:
+
+    def get_all_func_calls(self) -> list:
         return self._funccalls
+
+    def get_func_call(self, funcname: str) -> list:
+        return [x for x in self._funccalls if x.name.name == funcname]
