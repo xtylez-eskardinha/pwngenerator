@@ -2,7 +2,9 @@
 from pycparser import parse_file, c_ast
 from pwngen.parsers.utils import Decls, from_dict, to_dict
 from pwngen.parsers.visitors import funcDefs, funcCalls
+from z3 import *
 import json
+
 
 class AST:
 
@@ -29,7 +31,7 @@ class AST:
     def get_ast(self):
         return self._ast
 
-    def get_fncalls_fndef(self, code: c_ast.FuncDef) -> list:
+    def get_all_fncalls_fndef(self, code: c_ast.FuncDef) -> list:
         fncalls = funcCalls()
         fncalls.visit(code)
         return fncalls.get_all_func_calls()
@@ -59,6 +61,8 @@ class AstProcessor(AST):
         self._globals = self._get_globals()
         self._vars = self._get_all_vars()
         self._fncalls = self._get_func_calls()
+        self._stack = []
+        # self.create_stack(self._code)
 
     def _split_datatypes(self) -> tuple[list, list]:
         typedefs = []
@@ -75,7 +79,7 @@ class AstProcessor(AST):
             self._get_fn_name(x): x for x in self._ast if isinstance(x, c_ast.FuncDef)
         }
 
-    def _get_globals(self) -> dict:
+    def _get_globals(self) -> dict[str, list]:
         results = {"structs": [], "vars": []}
 
         results["structs"] = {
@@ -107,6 +111,22 @@ class AstProcessor(AST):
 
         return returner
 
+    def _parse_fncall(self, fncall: c_ast.FuncCall, scope: str = "") -> dict:
+        returner = {"name": fncall.name.name, "args": []}
+        if not fncall.args:
+            return returner
+
+        for arg in fncall.args:
+            if isinstance(arg, c_ast.ID):
+                returner["args"].append(self._locate_id(arg, scope))
+            elif isinstance(arg, c_ast.FuncCall):
+                returner["args"].append(self._parse_fncall(arg, scope))
+            elif isinstance(arg, c_ast.Constant):
+                returner["args"].append(arg)
+            else:
+                returner["args"].append(arg)
+        return returner
+
     def _parse_all_fn(self) -> dict:
         fndefs = self._funcs
 
@@ -122,25 +142,55 @@ class AstProcessor(AST):
 
         return vars
 
-    def generate_code(self) -> dict:
+    def get_all_vars(self) -> dict:
+        return self._vars
+
+    def generate_code(self) -> list:
         _, code = self._split_datatypes()
         return code
 
     def _get_fn_name(self, block: c_ast.FuncDef) -> str:
         return block.decl.name
 
+    def _locate_id(self, id: c_ast.ID, scope: str = "") -> c_ast.Decl | None:
+        decl = None
+        if isinstance(id, c_ast.ID):
+            name = id.name
+            if name in self._globals["vars"]:
+                decl = self._globals["vars"][name]
+            if scope and scope in self._funcs:
+                scope = self._funcs[scope]
+                scopedecl = self._filter_fn_declarations(scope)
+                vars = scopedecl["vars"]
+                arrays = scopedecl["arrays"]
+                if name in vars or name in arrays:
+                    decl = vars[name] if name in vars else arrays[name]
+
+            if decl is None:
+                print(id)
+
+            return decl
+
     def _parse_arraydecl(self, arraydecl: c_ast.ArrayDecl, scope: str = "") -> int:
         returner = -1
         if isinstance(arraydecl.dim, c_ast.ID):
-            id = arraydecl.dim.name
-            if id in self._globals["vars"]:
-                decl = self._globals["vars"][id]
-            if scope and scope in self._funcs:
-                scopedecl = self._filter_fn_declarations(scope)["vars"]
-                if id in scopedecl:
-                    decl = scopedecl[id]
-            returner = self.get_numdecl_value(decl)
+            decl = self._locate_id(arraydecl.dim, scope)
+            if decl is not None:
+                returner = self.get_numdecl_value(decl)
         elif isinstance(arraydecl.dim, c_ast.Constant):
+            returner = arraydecl.dim.value
+        return int(returner)
+
+    def _change_arraydecl_dim(
+        self, arraydecl: c_ast.ArrayDecl, size: int, scope: str = ""
+    ) -> int:
+        returner = -1
+        if isinstance(arraydecl.dim, c_ast.ID):
+            decl = self._locate_id(arraydecl.dim, scope)
+            if decl is not None:
+                returner = self.set_numdecl_value(decl, size)
+        elif isinstance(arraydecl.dim, c_ast.Constant):
+            arraydecl.dim.value = str(size)
             returner = arraydecl.dim.value
         return int(returner)
 
@@ -149,9 +199,9 @@ class AstProcessor(AST):
 
         for item in func.body.block_items:
             if isinstance(item, c_ast.Decl):
-                if isinstance(item.type, c_ast.TypeDecl):
+                if isinstance(item.type, (c_ast.TypeDecl)):
                     returner["vars"][item.name] = item
-                elif isinstance(item.type, c_ast.ArrayDecl):
+                elif isinstance(item.type, (c_ast.ArrayDecl, c_ast.PtrDecl)):
                     returner["arrays"][item.name] = item
             else:
                 continue
@@ -159,6 +209,13 @@ class AstProcessor(AST):
 
     def get_numdecl_value(self, numdecl: c_ast.Decl) -> int:
         if isinstance(numdecl.init, c_ast.Constant):
+            return int(numdecl.init.value)
+        else:
+            return -1
+
+    def set_numdecl_value(self, numdecl: c_ast.Decl, size: int) -> int:
+        if isinstance(numdecl.init, c_ast.Constant):
+            numdecl.init.value = str(size)
             return int(numdecl.init.value)
         else:
             return -1
@@ -193,6 +250,14 @@ class AstProcessor(AST):
     def get_all_fns(self) -> dict:
         return self._parse_all_fn()
 
+    def get_fn_call_args(self, fn: c_ast.FuncCall) -> dict:
+        returner = {}
+        print(fn)
+        if not isinstance(fn, c_ast.FuncCall):
+            return returner
+        else:
+            return fn.args
+
     def change_funcname(self, func_name: str, new_name: str) -> bool:
         if not func_name in self._funcs:
             return False
@@ -204,19 +269,27 @@ class AstProcessor(AST):
         self._funcs.pop(func_name, None)
         return True
 
-    def change_buffsize(self, func_name: str, var_name: str, size: int):
-
-        if not func_name in self._funcs:
+    def change_stack_buffsize(
+        self, var_name: str, dimension: int, size: int, func_name: str = "globals"
+    ):
+        if not func_name in self._vars:
+            return False
+        var = [x for x in self._vars[func_name] if x.name == var_name]
+        if not vars:
             return False
 
-        func = self._funcs.get(func_name)
-        filtered_declarations = self._filter_declarations(func)
+        dim = max(y for y, x in self.get_arraydecl_size(var[-1], func_name))
 
-        buff = [decl for decl in filtered_declarations.get("arrays")]
-        # for decl in filtered_declarations.get('arrays', []):
-        #     print(json.dumps(decl))
-        print(json.dumps(buff))
-        # TODO
+        if dim < dimension:
+            return False
+
+        decl = var[-1].type
+
+        while dim != dimension:
+            decl = decl.type
+            dim -= 1
+
+        return self._change_arraydecl_dim(decl, size, func_name)
 
     def get_globals(self) -> dict:
         return self._globals
@@ -225,7 +298,9 @@ class AstProcessor(AST):
         return self._funcs
 
     def count_references(self) -> dict:
+        # TODO
         returner = {}
+        return returner
 
 
 class Pwn:
