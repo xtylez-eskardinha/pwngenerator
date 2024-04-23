@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 pycparser = "^2.22"
+z3-solver = "^4.13.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
