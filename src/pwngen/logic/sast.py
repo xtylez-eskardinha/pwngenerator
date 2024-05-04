@@ -2,6 +2,8 @@ from pwngen.parsers.ast import AstProcessor
 from pycparser import c_ast
 from z3 import Not
 
+from pwngen.parsers.pwnable import Vulnerabilities
+
 
 class SAST:
 
@@ -12,6 +14,7 @@ class SAST:
 
     def __init__(self, ast: AstProcessor):
         self._ast = ast
+        self._vulns = Vulnerabilities(self._ast)
         self._bof = [
             "gets",
             "gets_s",
@@ -27,19 +30,29 @@ class SAST:
         self._vars = {}
 
     def _parse_assignment(
-        self, ast: c_ast.Assignment
-    ) -> tuple[str, str, str, list | None]:
+        self, ast: c_ast.Assignment, scope: str = "globals"
+    ) -> tuple[str, str, str | None, list | None]:
         assert isinstance(ast, c_ast.Assignment)
-        var = ast.lvalue.name
+        var = ast.lvalue
+
+        while isinstance(var, c_ast.ID):
+            var = var.name
         op = ast.op
+        value = None
         args = None
         if isinstance(ast.rvalue, c_ast.FuncCall):
             value = ast.rvalue.name.name
             # print(ast.rvalue)
             args = [
-                x.name if isinstance(x, c_ast.ID) else x.value if not isinstance(x, c_ast.Cast) else None
+                (
+                    x.name
+                    if isinstance(x, c_ast.ID)
+                    else x.value if not isinstance(x, c_ast.Cast) else None
+                )
                 for x in ast.rvalue.args.exprs
             ]
+        elif isinstance(ast.rvalue, c_ast.ID):
+            value = ast.rvalue.name
         return var, op, value, args
 
     def _parse_binaryop(self, op: c_ast.BinaryOp):
@@ -60,7 +73,7 @@ class SAST:
         else:
             right = right.name if "name" in dir(right) else right.value
         # print(" ".join([left, op, right]))
-        return " ".join([left, op, right])
+        return " ".join([str(left), str(op), str(right)])
 
     def _get_cond(self, ast: c_ast.If):
         if isinstance(ast.cond, c_ast.FuncCall):
@@ -71,14 +84,14 @@ class SAST:
         return cond
 
     def _parse_typedecl(self, ast: c_ast.TypeDecl, scope: str = "globals"):
-        if isinstance(ast, c_ast.Struct):
+        # print(ast)
+        if isinstance(ast.type, c_ast.Struct):
             return ast.type.name
-        if isinstance(ast, c_ast.IdentifierType):
+        if isinstance(ast.type, c_ast.IdentifierType):
             return ast.type.names
 
     # def _parse_arraydecl(self, ast: c_ast.ArrayDecl, scope: str = "globals"):
     #     if isinstance(ast, c_ast.ArrayDecl):
-
 
     def _parse_decl(self, ast: c_ast.Decl, scope: str = "globals"):
         if scope not in self._vars:
@@ -89,11 +102,13 @@ class SAST:
                 self._parse_decl(ast.type, scope)
             if isinstance(ast.type.type, c_ast.TypeDecl):
                 self._vars[scope][ast.type.type.declname] = {
-                    "type" : self._parse_typedecl(ast.type.type),
+                    "type": self._parse_typedecl(ast.type.type, scope),
                 }
-                return 
+                return
 
-            self._vars[scope][ast.name]["dim"] = self._ast.get_arraydecl_size(ast, scope)
+            self._vars[scope][ast.name]["dim"] = self._ast.get_arraydecl_size(
+                ast, scope
+            )
             self._vars[scope][ast.name]["init"] = ast.init
 
         if isinstance(ast.type, c_ast.PtrDecl):
@@ -101,7 +116,7 @@ class SAST:
             return
         if isinstance(ast.type, c_ast.TypeDecl):
             self._vars[scope][ast.name] = {
-                "type": self._parse_typedecl(ast.type),
+                "type": self._parse_typedecl(ast.type, scope),
                 "init": ast.init,
             }
         return
@@ -132,7 +147,7 @@ class SAST:
             | None
         ) = None,
         stack: list = [],
-        scope: str = "globals"
+        scope: str = "globals",
     ):
         # print(self._problem)
         if ast is None and not stack:
@@ -154,14 +169,18 @@ class SAST:
             return
         elif isinstance(ast, c_ast.Assignment):
             # TODO
+            var, op, value, args = self._parse_assignment(ast, scope)
+            # print(var, op, value, args)
             return
         elif isinstance(ast, c_ast.FuncCall):
-            if ast.name.name in self._bof:
+            if ast.name.name in self._vulns.get_dangerous():
                 tmp = stack[:]
                 self._problem.append(
                     [
                         tmp,
                         ast.name.name,
+                        scope,
+                        ast,
                         # TODO ARGS
                     ]
                 )
@@ -187,7 +206,6 @@ class SAST:
             # TODO Fill ARGs
             scope, kind = self._parse_fndef(ast)
             self.create_stack(ast.body, stack, scope)
-            print(scope)
             return
         elif isinstance(ast, (c_ast.UnaryOp, c_ast.TernaryOp)):
             # TODO
@@ -197,3 +215,7 @@ class SAST:
                 self.create_stack(block, stack, scope)
         else:
             return
+
+    def process_stack(self):
+        for problem in self._problem:
+            print(problem)
