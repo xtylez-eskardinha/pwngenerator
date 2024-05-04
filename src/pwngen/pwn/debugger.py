@@ -21,7 +21,7 @@ class Debugger(object):
     _core: Core
     _cyclic: bytes
     _delay: float
-    _breakpoints: dict[str, ]
+    _breakpoints: dict[str,]
     _threads: list
 
     def __init__(self, bin: str, delay: float = 0.2):
@@ -52,7 +52,7 @@ class Debugger(object):
             self._gdb = self._proc.gdb
             self._init_dbg()
 
-            # self._gdb = 
+            # self._gdb =
         else:
             raise Exception("Cannot initialize GDB")
 
@@ -72,7 +72,7 @@ class Debugger(object):
             )
             self._init_dbg()
 
-            # self._gdb = 
+            # self._gdb =
         else:
             raise Exception("Cannot initialize GDB")
 
@@ -85,7 +85,6 @@ class Debugger(object):
             # self._gdb.events.stop.connect(self.fork_connect)
             self._threads.append(self._gdb.selected_thread())
 
-
     def _get_corefile(self):
         self._core = self._proc.corefile  # type: ignore
 
@@ -96,7 +95,7 @@ class Debugger(object):
     def _kill_gdb(self):
         sleep(self._delay)
         self._gdb.quit()
-        
+
     def _interrupt(self):
         if self._gdb.stopped.is_set():
             return
@@ -150,7 +149,7 @@ class Debugger(object):
     def checkpoint_restart(self):
         sleep(self._delay)
         self._exec_gdb("restart 1")
-    
+
     def record_delete(self):
         sleep(self._delay)
         self._exec_gdb("record delete")
@@ -178,7 +177,7 @@ class Debugger(object):
         self._io.sendline(data)
 
     def send_custom_cyclic(self, size: int, pre: str = "", post: str = ""):
-        self._cyclic = cyclic(size) # type: ignore
+        self._cyclic = cyclic(size)  # type: ignore
         self._io.sendline(f"{pre}{self._cyclic}{post}".encode())
 
     def send_cyclic(self, size: int) -> bytes:
@@ -220,13 +219,12 @@ class Debugger(object):
             else:
                 break
 
-
     def recvline(self):
         return self._io.recvline()
-    
+
     def recv(self, size: int) -> bytes:
         return self._io.recv(size)
-    
+
     def recvall(self) -> bytes | None:
         return self._io.recvall()
 
@@ -241,6 +239,7 @@ class Debugger(object):
 
     def signal_connect(self, event):
         print(self.get_bt())
+
 
 class RemoteDebugger(Debugger):
 
