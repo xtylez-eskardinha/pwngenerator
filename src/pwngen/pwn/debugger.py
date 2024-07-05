@@ -1,4 +1,4 @@
-from pwnlib.gdb import debug, attach, Gdb
+from pwnlib.gdb import debug, attach, Gdb, Breakpoint
 import pwnlib.gdb
 from pwnlib.elf.elf import ELF
 from pwnlib.elf.corefile import Core
@@ -21,18 +21,23 @@ class Debugger(object):
     _core: Core
     _cyclic: bytes
     _delay: float
-    _breakpoints: dict[str,]
+    _breakpoints: dict[str, Breakpoint]
     _threads: list
 
-    def __init__(self, bin: str, delay: float = 0.2):
+    def __init__(self, bin: str, addr: str = "", port: int = -1, delay: float = 0.2):
         self._bin = bin
         self._pid = -1
         self._delay = delay
-        self._addr = ""
-        self._port = -1
+        self._addr = addr
+        self._port = port
         self._threads = []
         self._breakpoints = {}
         self._init_gdbserver()
+        if  self._addr and self._port > 0:
+            self._gdb.Breakpoint("accept", temporary=True)
+            self.finish_breakpoint(False)
+            sleep(5)
+            self._io = remote(self._addr, self._port)
         # self._init_gdb()
 
     def _init_gdbserver(self):
@@ -116,10 +121,14 @@ class Debugger(object):
             "static": self._elf.statically_linked,
         }
 
+    def reconnect(self):
+        self._io = remote(self._addr, self._port) if isinstance(self._io, remote) else self._proc
+
     def restart(self):
-        self._kill_gdb()
-        self._init_gdb()
+        self._init_gdbserver()
         self._init_dbg()
+        if self._addr and self._port > 0:
+            self._io = remote(self._addr, self._port)
 
     def get_elf(self) -> ELF:
         return self._elf
@@ -127,6 +136,11 @@ class Debugger(object):
     def get_pc(self):
         sleep(self._delay)
         return hex(self._gdb.newest_frame().pc())
+
+    def delete_breakpoints(self):
+        print(self._breakpoints)
+        for bp in self._breakpoints:
+            self._breakpoints[bp].delete()
 
     def get_bt(self) -> list:
         sleep(self._delay)
@@ -174,10 +188,12 @@ class Debugger(object):
         self._io.send(data)
 
     def sendline(self, data: bytes) -> None:
+        sleep(self._delay)
         self._io.sendline(data)
 
     def send_custom_cyclic(self, size: int, pre: str = "", post: str = ""):
-        self._cyclic = cyclic(size)  # type: ignore
+        self._cyclic = cyclic(size).decode()  # type: ignore
+        print(f"{pre}{self._cyclic}{post}".encode())
         self._io.sendline(f"{pre}{self._cyclic}{post}".encode())
 
     def send_cyclic(self, size: int) -> bytes:
@@ -225,8 +241,8 @@ class Debugger(object):
     def recv(self, size: int) -> bytes:
         return self._io.recv(size)
 
-    def recvall(self) -> bytes | None:
-        return self._io.recvall()
+    def recvall(self, timeout: int = 5) -> bytes | None:
+        return self._io.recvall(timeout)
 
     def fork_connect(self, event):
         if event.inferior_thread is not None:
@@ -241,14 +257,14 @@ class Debugger(object):
         print(self.get_bt())
 
 
-class RemoteDebugger(Debugger):
+# class RemoteDebugger(Debugger):
 
-    def __init__(self, bin: str, addr: str, port: int, delay: float = 0.1):
-        super().__init__(bin, delay)
-        self._gdb.Breakpoint("accept", temporary=True)
-        self.finish_breakpoint(False)
-        sleep(5)
-        self._io = remote(addr, port)
+#     def __init__(self, bin: str, addr: str, port: int, delay: float = 0.1):
+#         super().__init__(bin, delay)
+#         self._gdb.Breakpoint("accept", temporary=True)
+#         self.finish_breakpoint(False)
+#         sleep(5)
+#         self._io = remote(addr, port)
 
 
 # class NewBreakpoint(gdb.Breakpoint):
