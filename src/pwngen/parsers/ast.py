@@ -1,4 +1,5 @@
 # Import external dependencies
+from typing import Any
 from pycparser import parse_file, c_ast
 from pwngen.parsers.utils import Decls, from_dict, to_dict
 from pwngen.parsers.visitors import funcDefs, funcCalls
@@ -17,11 +18,11 @@ class AST:
             ast = parse_file(
                 file,
                 use_cpp=True,
-                cpp_args=[
+                cpp_args=' '.join([
                     "-E",
                     "-nostdinc",
                     "-Iutils/fake_libc_include",
-                ],
+                ]),
             )
             return ast
         except Exception as e:
@@ -74,13 +75,13 @@ class AstProcessor(AST):
                 code.append(x)
         return typedefs, code
 
-    def _get_fn_defs(self) -> dict:
+    def _get_fn_defs(self) -> dict[str, Any]:
         return {
             self._get_fn_name(x): x for x in self._ast if isinstance(x, c_ast.FuncDef)
         }
 
-    def _get_globals(self) -> dict[str, list]:
-        results = {"structs": [], "vars": []}
+    def _get_globals(self) -> dict[str, dict[str, c_ast.Decl | c_ast.Struct]]:
+        results = {"structs": {}, "vars": {}}
 
         results["structs"] = {
             x.type.name: x
@@ -153,14 +154,18 @@ class AstProcessor(AST):
         return block.decl.name
 
     def _locate_id(self, id: c_ast.ID, scope: str = "") -> c_ast.Decl | None:
-        decl = None
+        decl: c_ast.Decl | None = None
         if isinstance(id, c_ast.ID):
             name = id.name
             if name in self._globals["vars"]:
-                decl = self._globals["vars"][name]
+                decl = (
+                    self._globals["vars"][name]
+                    if isinstance(self._globals["vars"][name], c_ast.Decl)
+                    else None
+                ) # type: ignore
             if scope and scope in self._funcs:
-                scope = self._funcs[scope]
-                scopedecl = self._filter_fn_declarations(scope)
+                func: c_ast.FuncDef = self._funcs[scope]
+                scopedecl = self._filter_fn_declarations(func)
                 vars = scopedecl["vars"]
                 arrays = scopedecl["arrays"]
                 if name in vars or name in arrays:
@@ -194,7 +199,7 @@ class AstProcessor(AST):
             returner = arraydecl.dim.value
         return int(returner)
 
-    def _filter_fn_declarations(self, func: c_ast.FuncDef) -> dict:
+    def _filter_fn_declarations(self, func: c_ast.FuncDef) -> dict[str, Any]:
         returner = {"arrays": {}, "vars": {}}
 
         for item in func.body.block_items:
@@ -294,7 +299,7 @@ class AstProcessor(AST):
     def get_globals(self) -> dict:
         return self._globals
 
-    def get_fn_defs(self) -> dict:
+    def get_fn_defs(self) -> dict[str, Any]:
         return self._funcs
 
     def count_references(self) -> dict:
