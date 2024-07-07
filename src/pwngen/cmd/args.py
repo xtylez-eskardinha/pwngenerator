@@ -24,6 +24,13 @@ class Args:
         )
 
         self._parser.add_argument(
+            '--remote-addr',
+            required=False,
+            type=str,
+            help="Address in which the binary exposes the communication port, for example, localhost:54447"
+        )
+
+        self._parser.add_argument(
             "-c", "--compile",
             default=False,
             type=bool,
