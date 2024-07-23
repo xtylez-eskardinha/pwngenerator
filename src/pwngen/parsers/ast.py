@@ -1,7 +1,7 @@
 # Import external dependencies
 from typing import Any
-from pycparser import parse_file, c_ast
-from pwngen.parsers.utils import Decls, from_dict, to_dict
+from pycparser import parse_file, c_ast, c_generator
+from pwngen.parsers.utils import Decls, from_dict, to_dict, to_json
 from pwngen.parsers.visitors import funcDefs, funcCalls
 from z3 import *
 import json
@@ -10,6 +10,7 @@ import json
 class AST:
 
     def __init__(self, file: str):
+        self._file = file
         self._ast = self._parse_c(file)
         self._astjson = to_dict(self._ast)
 
@@ -18,11 +19,11 @@ class AST:
             ast = parse_file(
                 file,
                 use_cpp=True,
-                cpp_args=' '.join([
+                cpp_args=[
                     "-E",
                     "-nostdinc",
                     "-Iutils/fake_libc_include",
-                ]),
+                ], # type: ignore
             )
             return ast
         except Exception as e:
@@ -42,10 +43,6 @@ class AST:
         funccall.visit(self._ast)
         return funccall.get_func_call(name)
 
-    def get_func_defs(self) -> list:
-        self._fndefs.visit(self._ast)
-        return self._fndefs.getFuncDefs()
-
     def to_dict(self) -> dict:
         return self._astjson
 
@@ -57,13 +54,15 @@ class AstProcessor(AST):
 
     def __init__(self, file: str):
         super().__init__(file)
+        self._update_state()
+        # self.create_stack(self._code)
+
+    def _update_state(self):
         self._typedefs, self._code = self._split_datatypes()
         self._funcs = self._get_fn_defs()
         self._globals = self._get_globals()
         self._vars = self._get_all_vars()
         self._fncalls = self._get_func_calls()
-        self._stack = []
-        # self.create_stack(self._code)
 
     def _split_datatypes(self) -> tuple[list, list]:
         typedefs = []
@@ -74,6 +73,45 @@ class AstProcessor(AST):
             else:
                 code.append(x)
         return typedefs, code
+
+    def _preprocess_c(self) -> list[str]:
+        with open(self._file, 'r') as f:
+            return [
+                line.strip() for line in f.readlines() 
+                if line.startswith("#")
+            ]
+
+    def _get_first_decl(self) -> str:
+        # with open(self._file, 'r') as f:
+        #     lines = f.readlines()
+        #     for line in lines:
+        #         if line and not line.startswith("#"):
+        #             return line.strip()
+        # return ""
+        for node in self._ast.ext:
+            if not isinstance(node, c_ast.Typedef):
+                if isinstance(node, c_ast.Decl):
+                    return node.type.name
+                elif isinstance(node, c_ast.FuncDef):
+                    return node.decl.name
+                else:
+                    print(node)
+        return ""
+
+    def save_c(self, file: str):
+        gen = c_generator.CGenerator()
+        print(self._preprocess_c())
+        with open(file, 'w') as f:
+            f.write('\n'.join(self._preprocess_c()))
+            f.write('\n')
+            to_write = gen.visit(self._ast)
+            first_decl = self._get_first_decl()
+            print(first_decl)
+            for i, line in enumerate(to_write.splitlines()):
+                if first_decl in line.strip():
+                    f.write('\n')
+                    break
+            f.write('\n'.join(to_write.splitlines()[i:]))
 
     def _get_fn_defs(self) -> dict[str, Any]:
         return {
@@ -153,6 +191,10 @@ class AstProcessor(AST):
     def _get_fn_name(self, block: c_ast.FuncDef) -> str:
         return block.decl.name
 
+    # TODO Improve and support more types
+    def _gen_id(self, target: c_ast.FuncDef) -> c_ast.ID:
+        return c_ast.ID(target.decl.name, None)
+
     def _locate_id(self, id: c_ast.ID, scope: str = "") -> c_ast.Decl | None:
         decl: c_ast.Decl | None = None
         if isinstance(id, c_ast.ID):
@@ -211,6 +253,9 @@ class AstProcessor(AST):
             else:
                 continue
         return returner
+
+    def get_fn_def_args(self, funcdef: c_ast.FuncDef):
+        return funcdef.decl.type.args.params
 
     def get_numdecl_value(self, numdecl: c_ast.Decl) -> int:
         if isinstance(numdecl.init, c_ast.Constant):
@@ -277,10 +322,11 @@ class AstProcessor(AST):
     def change_stack_buffsize(
         self, var_name: str, dimension: int, size: int, func_name: str = "globals"
     ):
+        self._update_state()
         if not func_name in self._vars:
             return False
         var = [x for x in self._vars[func_name] if x.name == var_name]
-        if not vars:
+        if not var:
             return False
 
         dim = max(y for y, x in self.get_arraydecl_size(var[-1], func_name))
@@ -307,6 +353,16 @@ class AstProcessor(AST):
         returner = {}
         return returner
 
+    def insert_funcdef(self, func: c_ast.FuncDef):
+        index = 0
+        for i, ast in enumerate(self._ast.ext):
+            if not isinstance(ast, c_ast.FuncDef):
+                continue
+            else:
+                if self._get_fn_name(ast) == "main":
+                    index = i
+                    break
+        self._ast.ext.insert(index, func)
 
 class Pwn:
     def __init__(self, code: AST):
