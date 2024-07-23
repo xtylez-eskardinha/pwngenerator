@@ -93,7 +93,7 @@ class SAST:
     # def _parse_arraydecl(self, ast: c_ast.ArrayDecl, scope: str = "globals"):
     #     if isinstance(ast, c_ast.ArrayDecl):
 
-    def _parse_decl(self, ast: c_ast.Decl, scope: str = "globals"):
+    def _parse_decl(self, ast: c_ast.Decl | c_ast.ArrayDecl, scope: str = "globals"):
         if scope not in self._vars:
             self._vars[scope] = {}
 
@@ -104,7 +104,7 @@ class SAST:
                 self._vars[scope][ast.type.type.declname] = {
                     "type": self._parse_typedecl(ast.type.type, scope),
                 }
-                return
+                return None
 
             self._vars[scope][ast.name]["dim"] = self._ast.get_arraydecl_size(
                 ast, scope
@@ -216,6 +216,12 @@ class SAST:
         else:
             return
 
+    def get_problems(self):
+        return self._problem
+
     def process_stack(self):
         for problem in self._problem:
             print(problem)
+
+    def get_vulns_class(self) -> Vulnerabilities:
+        return self._vulns
