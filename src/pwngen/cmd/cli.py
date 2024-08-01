@@ -2,6 +2,7 @@ from pwngen.cmd.args import Args
 from pwngen.logic.vulngen import VulnGen
 from pwngen.parsers.ast import AstProcessor
 from pwngen.pwn.exploit import Exploit
+from pwngen.pwn.compiler import Compiler
 from argparse import Namespace
 from typing import Any
 import random
@@ -35,8 +36,13 @@ class CLI:
             ast = AstProcessor(self._args['input'])
             generator = VulnGen(ast)
             generator.inject_vulns()
-            ast.save_c('test.c')
+            output = self._args.get("output", "out.c")
+            c_input = self._args.get("input", "")
+            ast.save_c(output)
             gcc_flags = generator.get_compiler_syntax()
+            if self._args.get('compile'):
+                compiler = Compiler(args=gcc_flags, c_input=c_input, output=output)
+                compiler.compile()
             return 0
         except Exception as e:
             print(e)
