@@ -8,6 +8,7 @@ void ret2win(){
 }
 
 void input_gets_bof(char *buf) {
+    char filler[64];
     char buffer[64];
     gets(buffer);
     strcpy(buf, buffer);
@@ -15,6 +16,7 @@ void input_gets_bof(char *buf) {
 
 void input_gets_bof_canary(char *buf) {
     int canary = 0x20;
+    char filler[64];
     char buffer[64];
     gets(buffer);
     if (canary != 0x20)
@@ -23,30 +25,21 @@ void input_gets_bof_canary(char *buf) {
 }
 
 void input_scanf_bof(char *buf) {
+    char filler[64];
     char buffer[64];
     scanf("%s", buffer);
     strcpy(buf, buffer);
 }
 
 void input_strcpy_bof(char *buf) {
-    char buffer[24];
+    char filler[64];
     char buffer2[64];
     fgets(buffer2, sizeof(buffer2), stdin);
-    strcpy(buffer, buffer2);
-}
-
-void input_strcpy_bof_canary(char *buf) {
-    int canary = 42;
-    char buffer[32];
-    char buffer3[64];
-    fgets(buffer3, sizeof(buffer3), stdin);
-    strcpy(buffer, buffer3);
-    if (canary != 42)
-        exit(127);
-    return buffer;
+    strcpy(buf, buffer2);
 }
 
 void append_input_bof(char *buf) {
+    char filler[64];
     char buffer[64];
     scanf("%s", buffer);
     strcat(buf, buffer);
