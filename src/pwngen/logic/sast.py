@@ -1,3 +1,4 @@
+from typing import Any
 from pwngen.parsers.ast import AstProcessor
 from pycparser import c_ast
 from z3 import Not
@@ -5,11 +6,41 @@ from z3 import Not
 from pwngen.parsers.pwnable import Vulnerabilities
 
 
+class Problem:
+    _stack: list[Any]
+    _fn: str
+    _scope: str
+    _call: c_ast.FuncCall
+
+    def __init__(
+            self,
+            stack: list[Any],
+            fn: str,
+            scope: str,
+            call: c_ast.FuncCall
+            ):
+        self._stack = stack
+        self._fn = fn
+        self._scope = scope
+        self._call = call
+
+    def get_stack(self) -> list[Any]:
+        return self._stack
+    
+    def get_fn_name(self) -> str:
+        return self._fn
+    
+    def get_fn_scope(self) -> str:
+        return self._scope
+    
+    def get_fncall(self) -> c_ast.FuncCall:
+        return self._call
+
 class SAST:
 
     _ast: AstProcessor
     _bof: list[str]
-    _problem: list
+    _problem: list[Problem]
     _vars = dict
 
     def __init__(self, ast: AstProcessor):
@@ -176,13 +207,7 @@ class SAST:
             if ast.name.name in self._vulns.get_dangerous():
                 tmp = stack[:]
                 self._problem.append(
-                    [
-                        tmp,
-                        ast.name.name,
-                        scope,
-                        ast,
-                        # TODO ARGS
-                    ]
+                    Problem(tmp, ast.name.name, scope, ast)
                 )
         elif isinstance(ast, c_ast.If):
             cond = self._get_cond(ast)
