@@ -33,14 +33,15 @@ class Args:
         self._parser.add_argument(
             "-c", "--compile",
             default=False,
-            type=bool,
+            action="store_true",
             help="Wether to compile vulnerable C code to binary"
         )
 
         self._parser.add_argument(
             "-o", "--output",
             type=str,
-            help="Location for the output binary or C file"
+            help="Location for the output binary or C file",
+            required=True
         )
 
         self._parser.add_argument(
