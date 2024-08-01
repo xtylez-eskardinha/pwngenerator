@@ -100,18 +100,17 @@ class AstProcessor(AST):
 
     def save_c(self, file: str):
         gen = c_generator.CGenerator()
-        print(self._preprocess_c())
         with open(file, 'w') as f:
             f.write('\n'.join(self._preprocess_c()))
             f.write('\n')
             to_write = gen.visit(self._ast)
             first_decl = self._get_first_decl()
-            print(first_decl)
             for i, line in enumerate(to_write.splitlines()):
                 if first_decl in line.strip():
                     f.write('\n')
                     break
             f.write('\n'.join(to_write.splitlines()[i:]))
+            print("File succesfuly created...", file)
 
     def _get_fn_defs(self) -> dict[str, Any]:
         return {
@@ -254,6 +253,9 @@ class AstProcessor(AST):
                 continue
         return returner
 
+    def get_var_fromid(self, id: c_ast.ID, scope: str = "") -> c_ast.Decl | None:
+        return self._locate_id(id, scope)
+
     def get_fn_def_args(self, funcdef: c_ast.FuncDef):
         return funcdef.decl.type.args.params
 
@@ -363,6 +365,7 @@ class AstProcessor(AST):
                     index = i
                     break
         self._ast.ext.insert(index, func)
+        self._update_state()
 
 class Pwn:
     def __init__(self, code: AST):
