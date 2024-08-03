@@ -7,12 +7,14 @@ from z3 import *
 import json
 
 
-class AST:
+class AstProcessor:
 
     def __init__(self, file: str):
         self._file = file
         self._ast = self._parse_c(file)
         self._astjson = to_dict(self._ast)
+        self._update_state()
+        # self.create_stack(self._code)
 
     def _parse_c(self, file: str):
         try:
@@ -48,14 +50,6 @@ class AST:
 
     def from_dict(self, ast: dict):
         self._ast = from_dict(ast)
-
-
-class AstProcessor(AST):
-
-    def __init__(self, file: str):
-        super().__init__(file)
-        self._update_state()
-        # self.create_stack(self._code)
 
     def _update_state(self):
         self._typedefs, self._code = self._split_datatypes()
@@ -368,7 +362,7 @@ class AstProcessor(AST):
         self._update_state()
 
 class Pwn:
-    def __init__(self, code: AST):
+    def __init__(self, code: AstProcessor):
         self._codeast = code
 
     def get_pwnable(self):
