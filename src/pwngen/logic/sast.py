@@ -2,8 +2,8 @@ from typing import Any
 from pwngen.parsers.ast import AstProcessor
 from pycparser import c_ast
 from z3 import Not
-
 from pwngen.parsers.pwnable import Vulnerabilities
+import re
 
 
 class Problem:
@@ -11,6 +11,8 @@ class Problem:
     _fn: str
     _scope: str
     _call: c_ast.FuncCall
+    _unsure: list[str]
+    _args: c_ast.ExprList
 
     def __init__(
             self,
@@ -23,6 +25,11 @@ class Problem:
         self._fn = fn
         self._scope = scope
         self._call = call
+        self._unsure = [
+            "scanf",
+            "printf"
+        ]
+        self._args = self._call.args
 
     def get_stack(self) -> list[Any]:
         return self._stack
@@ -36,6 +43,22 @@ class Problem:
     def get_fncall(self) -> c_ast.FuncCall:
         return self._call
 
+    def is_real_problem(self) -> bool:
+        return self._fn not in self._unsure
+
+    def parse_fmt_str(self) -> tuple[list[str], list[str], list[str]]:
+        args = self._args
+        parameter = args.exprs[0].value.strip().strip('\"')
+        formats = re.findall(r"%[0-9]*[diouxefgcs]", parameter)
+        text = re.split(r"%[0-9]*[diouxefgcs]", parameter)
+        fmt_str = re.findall(r"%[0-9]*[cs]", parameter)
+        return formats, text, fmt_str
+
+    def analyze_context(self) -> bool:
+        possible, text, fmt_str = self.parse_fmt_str()
+        print(possible, text, fmt_str)
+        return True if fmt_str else False
+        
 class SAST:
 
     _ast: AstProcessor
