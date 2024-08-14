@@ -14,10 +14,9 @@ class Compiler():
         self._input = c_input
     
     def compile(self):
-        real_output = f"{self._output.split(".")[0]}.o"
+        real_output = f"{self._output}.o"
         all_args = self._args + [f"-o{real_output}"] + [self._input]
         all_args.insert(0, self._compiler)
-        print(all_args)
         try:
             execute(
                 args=all_args,
