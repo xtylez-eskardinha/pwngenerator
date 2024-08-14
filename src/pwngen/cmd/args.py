@@ -40,7 +40,7 @@ class Args:
         self._parser.add_argument(
             "-o", "--output",
             type=str,
-            help="Location for the output binary or C file",
+            help="Location and name, without extension, for the output binary and C file, binary outputs with .o and source with .c",
             required=True
         )
 
