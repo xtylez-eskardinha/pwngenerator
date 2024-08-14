@@ -41,9 +41,10 @@ class AstProcessor:
         return fncalls.get_all_func_calls()
 
     def _get_func_name_calls(self, name: str) -> list:
-        funccall = funcCalls()
-        funccall.visit(self._ast)
-        return funccall.get_func_call(name)
+        return [
+            x for x in self._funcs[name].body.block_items
+            if isinstance(x, c_ast.FuncCall)
+        ]
 
     def to_dict(self) -> dict:
         return self._astjson
@@ -92,9 +93,10 @@ class AstProcessor:
                     print(node)
         return ""
 
-    def save_c(self, file: str):
+    def save_c(self, file: str, gcc_flags: list[str]):
         gen = c_generator.CGenerator()
         with open(file, 'w') as f:
+            f.write(f"// gcc {' '.join(gcc_flags)}" + "\n")
             f.write('\n'.join(self._preprocess_c()))
             f.write('\n')
             to_write = gen.visit(self._ast)
@@ -286,15 +288,39 @@ class AstProcessor:
 
     def filter_all_vars(self, kind) -> dict:
         return {
-            fn: {var.name: var for var in self._vars[fn] if isinstance(var.type, kind)}
-            for fn in self._vars
+            fn: {
+                var.name: var 
+                for var in self._vars[fn]
+                if isinstance(var.type, kind)
+            } for fn in self._vars
         }
 
     def _get_func_calls(self) -> dict:
         return {x: self._get_func_name_calls(x) for x in self._funcs}
 
+    def _locate_fncall(self, fncall: c_ast.FuncCall, scope) -> int:
+        fn: c_ast.FuncDef = self._funcs[scope]
+        fn_body = fn.body.block_items
+        fncall_args = fncall.args.exprs
+        fncall_name = fncall.name.name
+        for i,fn in enumerate(fn_body):
+            if isinstance(fn, c_ast.FuncCall):
+                if fncall_name == fn.name.name:
+                    if fncall_args == fn.args.exprs:
+                        return i
+        return -1
+
+    def _insert_fncall(self, scope: str, idx: int, fncall: c_ast.FuncCall):
+        fn: c_ast.FuncDef = self._funcs[scope]
+        fn_body = fn.body.block_items
+        fn_body.insert(idx, fncall)
+        return -1
+
     def get_all_fns(self) -> dict:
         return self._parse_all_fn()
+
+    def get_fncalls(self) -> dict[str, list[c_ast.FuncCall]]:
+        return self._fncalls
 
     def get_fn_call_args(self, fn: c_ast.FuncCall) -> dict:
         returner = {}
@@ -349,7 +375,22 @@ class AstProcessor:
         returner = {}
         return returner
 
-    def insert_funcdef(self, func: c_ast.FuncDef):
+    def locate_fncall(self, fncall: c_ast.FuncCall, scope: str) -> int:
+        return self._locate_fncall(fncall, scope)
+
+    def insert_funccall(
+            self,
+            index: int,
+            fncall: c_ast.FuncCall,
+            scope: str = ""
+        ):
+        fndef: c_ast.FuncDef | None = self._fncalls.get(scope, None) # type: ignore
+        if not fndef:
+            return -1
+        self._insert_fncall(scope, index, fncall)
+        return
+
+    def insert_fndef(self, func: c_ast.FuncDef):
         index = 0
         for i, ast in enumerate(self._ast.ext):
             if not isinstance(ast, c_ast.FuncDef):
