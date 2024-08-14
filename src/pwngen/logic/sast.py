@@ -43,8 +43,14 @@ class Problem:
     def get_fncall(self) -> c_ast.FuncCall:
         return self._call
 
+    def get_args(self) -> c_ast.ExprList:
+        return self._args
+
     def is_real_problem(self) -> bool:
-        return self._fn not in self._unsure
+        args = self._args
+        len_args = len(args.exprs) == 2
+        sure = self._fn in self._unsure
+        return sure and len_args
 
     def parse_fmt_str(self) -> tuple[list[str], list[str], list[str]]:
         args = self._args
