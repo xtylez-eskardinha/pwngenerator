@@ -1,14 +1,33 @@
-from pwngen.logic.sast import SAST
+from copy import deepcopy
+import itertools
+from typing import Any
+from pwngen.logic.sast import SAST, Problem
 from pwngen.parsers.ast import AstProcessor
+from pwngen.parsers.exprs import ExprList
 from pwngen.parsers.pwnable import Vulnerabilities
 from pycparser import c_ast
-from random import randint
+from random import randint, choice
+
+class Vuln:
+    _fncall: c_ast.FuncCall
+    _fndef: c_ast.FuncDef
+    _kind: str
+    
+    def __init__(
+            self,
+            fncall: c_ast.FuncCall,
+            fndef: c_ast.FuncDef,
+            kind: str):
+        self._fncall = fncall
+        self._fndef = fndef
+        self._kind = kind
 
 class VulnGen:
 
     _ast: AstProcessor
     _sast: SAST
     _vulns: Vulnerabilities
+    _gen: list[Vuln]
 
     def __init__(self, ast: AstProcessor, difficulty: int = 0):
         self._ast = ast
@@ -28,17 +47,19 @@ class VulnGen:
                 vuln_kind = possible
         # print(f'{vuln_kind}_gets_bof')
         if self._difficulty == 0:
-            return danger[f'{vuln_kind}_gets_bof']
+            return deepcopy(danger[f'{vuln_kind}_gets_bof'])
         else:
-            return danger[f'{vuln_kind}_gets_bof_canary']
+            return deepcopy(danger[f'{vuln_kind}_gets_bof_canary'])
 
     def _set_orig_bufsize(
             self,
-            orig_buff: c_ast.ID,
+            orig_buff: c_ast.ID | c_ast.UnaryOp,
             orig_fn_scope: str,
             dest_fndef: str,
             ):
-        out_var = self._ast.get_var_fromid(orig_buff, orig_fn_scope)
+        if isinstance(orig_buff, c_ast.UnaryOp):
+            orig_buff = orig_buff.expr
+        out_var = self._ast.get_var_fromid(orig_buff, orig_fn_scope) # type: ignore
         print(out_var)
         if isinstance(out_var, c_ast.Decl):
             size = self._ast.get_arraydecl_size(out_var, orig_fn_scope)[-1]
@@ -47,6 +68,9 @@ class VulnGen:
         else:
             return False
 
+    def _adapt_format_args(self, fn_descr: dict, fndef: c_ast.FuncDef, args: c_ast.ExprList):
+        return
+
     def _change_args(self, fncall: c_ast.FuncCall, fndef: c_ast.FuncDef) -> None:
         func_descr = self._vulns._dangerous.get(fncall.name.name)
         if func_descr:
@@ -54,6 +78,10 @@ class VulnGen:
                 fncall.args.exprs = [
                     fncall.args.exprs[func_descr['out']]
                 ]
+            elif func_descr['args'] == -1:
+                fncall.args.exprs = fncall.args.exprs[func_descr['out']:]
+            if len(fncall.args.exprs) > 1:
+                self._adapt_format_args(func_descr, fndef, fncall.args.exprs) # type: ignore
         return None
 
     def _change_vuln_bufsize(self, func_name: str):
@@ -62,31 +90,109 @@ class VulnGen:
     def _swap_funcs(self, fncall: c_ast.FuncCall, fndef: c_ast.FuncDef):
         fncall.name.name = fndef.decl.name
 
+    def _modify_fmtstr_args(self, problem: Problem):
+        fndef = self._func_generator(
+            f"input_{problem.get_fn_name()}_custom_bof")
+        fncall = problem.get_fncall()
+        fndef_args = fndef.decl.args
+        fncall_args = problem.get_args()
+
+    def _merge_fmtstr(self, text: list[str], formats: list[str]) -> list[str]:
+        merged = list(itertools.chain(*zip(text, formats)))
+        if len(text) > len(formats):
+            merged.append(text[-1])
+        return merged
+
+    def _divide_fmtstr(
+            self,
+            problem: Problem
+            ) -> tuple[int, list[c_ast.FuncCall]] | tuple[int, None]:
+        returner = []
+        possible, text, fmt_str = problem.parse_fmt_str()
+        if not fmt_str:
+            return -1, None
+        vuln = choice(fmt_str)
+        idx = possible.index(vuln)
+        text_const = deepcopy(problem.get_args().exprs[0])
+        func_pre = deepcopy(problem)
+        func_post = deepcopy(problem)
+        pre_args = func_pre.get_args()
+        post_args = func_post.get_args()
+        pre_args.exprs = pre_args.exprs[1:idx+1]
+        if len(pre_args.exprs) != 0:
+            text_pre = deepcopy(text_const)
+            inserter = self._merge_fmtstr(text[:idx], possible[:idx])
+            text_pre.value = f'"{"".join(inserter)}"'
+            pre_args.exprs.insert(0, text_pre)
+            returner.append(func_pre.get_fncall())
+        post_args.exprs = post_args.exprs[idx+2:]
+        if len(post_args.exprs) != 0:
+            text_post = deepcopy(text_const)
+            inserter = self._merge_fmtstr(text[idx+1:], possible[idx+1:])
+            text_post.value = f'"{"".join(inserter)}"'
+            post_args.exprs.insert(0, text_post)
+            returner.append(func_post.get_fncall())
+        return idx, returner
+        # return args_copy.exprs.pop(idx+1)
+
     def _process_problems(self) -> bool:
         modified = []
         problems = self._sast.get_problems()
+        # print(self._ast._fncalls)
         if self._difficulty == 0:
             ret2win = self._func_generator("ret2win")
-            self._ast.insert_funcdef(ret2win)
+            self._ast.insert_fndef(ret2win)
         if not problems:
             return False
         for problem in problems:
-            kind = problem.get_fn_name()
-            fncall = problem.get_fncall()
-            problem_scope = problem.get_fn_scope()
-            new_func = self._func_generator(kind)
-            if not new_func:
-                continue
-            self._ast.insert_funcdef(new_func)
-            self._ast.change_funcname(new_func.decl.name, "input_1")
-            self._change_args(fncall, new_func)
-            buf_arg = fncall.args.exprs[0]
-            self._swap_funcs(fncall, new_func)
-            self._change_vuln_bufsize(new_func.decl.name)
-            self._set_orig_bufsize(buf_arg, problem_scope, new_func.decl.name)
+            self.create_problem(problem)
+            
         return True
         # print(problems)
         # print(self._vulns._vulnfuncsdict)
+
+    def _create_vuln(self, problem: Problem):
+        kind = problem.get_fn_name()
+        fncall = problem.get_fncall()
+        problem_scope = problem.get_fn_scope()
+        new_func = self._func_generator(kind)
+        if not new_func:
+            return False
+        self._ast.insert_fndef(new_func)
+        self._ast.change_funcname(new_func.decl.name, "input_1")
+        self._change_args(fncall, new_func)
+        buf_arg = fncall.args.exprs[0]
+        print(fncall)
+        # if fncall.name.name == "scanf":
+        #     buf_arg = fncall.args.exprs[1]
+        self._swap_funcs(fncall, new_func)
+        self._change_vuln_bufsize(new_func.decl.name)
+        self._set_orig_bufsize(buf_arg, problem_scope, new_func.decl.name)
+
+    def create_problem(self, problem: Problem):
+        if not problem.is_real_problem():
+            vuln_idx, new_problems = self._divide_fmtstr(problem)
+            if not new_problems:
+                return False
+            prob_scope = problem.get_fn_scope()
+            fn_idx = self._ast.locate_fncall(
+                problem.get_fncall(), prob_scope)
+            prob_args = problem.get_args()
+            prob_name = problem.get_fn_name()
+            print(vuln_idx, len(prob_args.exprs), new_problems)
+            if vuln_idx == 0:
+                self._ast.insert_funccall(fn_idx+1, new_problems[0], prob_scope)
+            elif vuln_idx < len(prob_args.exprs)-2:
+                self._ast.insert_funccall(fn_idx, new_problems[0], prob_scope)
+                self._ast.insert_funccall(fn_idx+2, new_problems[1], prob_scope)
+            else:
+                self._ast.insert_funccall(fn_idx, new_problems[0], prob_scope)
+            prob_pos, prob_text, prob_fmtstr = problem.parse_fmt_str()
+            prob_args.exprs[0].value = f'"{prob_pos[vuln_idx]}"'
+            del prob_args.exprs[vuln_idx+2:]
+            del prob_args.exprs[1:vuln_idx+1]
+        self._create_vuln(problem)
+        return True
 
     def inject_vulns(self):
         return self._process_problems()
@@ -103,12 +209,11 @@ class VulnGen:
             returner.append("-static")
             returner.append("-fno-stack-protector")
             returner.append("-no-pie")
-            returner.append("-z noexecstack")
+            returner.append("-zexecstack")
         if self._difficulty > 1:
-            returner.append("-z execstack")
+            returner.append("-znoexecstack")
         if self._difficulty > 2:
             returner.append("-fstack-protector-strong")
         if self._difficulty > 3:
             returner.append("-fPIE -pie")
         return returner
-        return ' '.join(returner)
