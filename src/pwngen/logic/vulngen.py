@@ -47,9 +47,9 @@ class VulnGen:
                 vuln_kind = possible
         # print(f'{vuln_kind}_gets_bof')
         if self._difficulty == 0:
-            return deepcopy(danger[f'{vuln_kind}_gets_bof'])
+            return deepcopy(danger[f'{vuln_kind}_{kind}_bof'])
         else:
-            return deepcopy(danger[f'{vuln_kind}_gets_bof_canary'])
+            return deepcopy(danger[f'{vuln_kind}_{kind}_bof_canary'])
 
     def _set_orig_bufsize(
             self,
@@ -60,7 +60,6 @@ class VulnGen:
         if isinstance(orig_buff, c_ast.UnaryOp):
             orig_buff = orig_buff.expr
         out_var = self._ast.get_var_fromid(orig_buff, orig_fn_scope) # type: ignore
-        print(out_var)
         if isinstance(out_var, c_ast.Decl):
             size = self._ast.get_arraydecl_size(out_var, orig_fn_scope)[-1]
             self._ast.change_stack_buffsize("buffer", size[0], size[1], dest_fndef)
@@ -159,10 +158,9 @@ class VulnGen:
         if not new_func:
             return False
         self._ast.insert_fndef(new_func)
-        self._ast.change_funcname(new_func.decl.name, "input_1")
+        self._ast.change_funcname(new_func.decl.name, f"input_{randint(0, 100)}")
         self._change_args(fncall, new_func)
         buf_arg = fncall.args.exprs[0]
-        print(fncall)
         # if fncall.name.name == "scanf":
         #     buf_arg = fncall.args.exprs[1]
         self._swap_funcs(fncall, new_func)
@@ -179,7 +177,6 @@ class VulnGen:
                 problem.get_fncall(), prob_scope)
             prob_args = problem.get_args()
             prob_name = problem.get_fn_name()
-            print(vuln_idx, len(prob_args.exprs), new_problems)
             if vuln_idx == 0:
                 self._ast.insert_funccall(fn_idx+1, new_problems[0], prob_scope)
             elif vuln_idx < len(prob_args.exprs)-2:
