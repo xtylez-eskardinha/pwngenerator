@@ -1,5 +1,5 @@
 from typing import Any
-from pwngen.parsers.ast import AST, AstProcessor
+from pwngen.parsers.ast import AstProcessor
 from pwngen.parsers.utils import *
 from pycparser import c_parser
 
@@ -16,16 +16,51 @@ class Function(object):
     _in: int
     _out: int
     _size: int
+    _fndef: c_ast.FuncDef
     _custom: list[str]
+    _args: c_ast.ExprList
 
     def __init__(
-        self, arg_num: int, in_idx: int, out_idx: int, size_idx: int, custom: list
+        self,
+        fndef: c_ast.FuncDef,
+        in_idx: int,
+        out_idx: int,
+        args: c_ast.ExprList,
+        custom: list[str] = [],
+        size_idx: int = -1,
+        arg_num: int = -1,
     ):
         self._argsize = arg_num
         self._in = in_idx
         self._out = out_idx
         self._size = size_idx
         self._custom = custom
+        self._args = args
+        self._fndef = fndef
+
+    def _parse_args(self) -> dict[str, list[Any]]:
+        returner = {}
+        # if self._argsize == -1:
+        #     return {
+        #         "in": [self._args[self._in]],
+        #         self._args[]
+        #     }
+        for arg in self._args:
+            continue
+        return returner
+
+class Gets(Function):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+  
+class Scanf(Function):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class Printf(Function):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 
 class Vulnerabilities(object):
 
@@ -57,7 +92,7 @@ class Vulnerabilities(object):
         # },
         # "vsnprintf",
         "scanf": {
-            "args": 2,
+            "args": -1,
             "in": 0,
             "out": 1,
             "custom": ["bof_if_out_size_less_in_size"],
