@@ -67,7 +67,7 @@ class Vulnerabilities(object):
     _dangerous = {
         "gets": {"args": 1, "out": 0},
         "gets_s": {"args": 2, "out": 0, "size": 1},
-        "fgets": {"args": 3, "in": 0, "size": 1, "out": 2},
+        "fgets": {"args": 3, "in": 2, "size": 1, "out": 0},
         "strcpy": {"args": 2, "out": 0, "in": 1},
         "strcat": {
             "args": 2,
