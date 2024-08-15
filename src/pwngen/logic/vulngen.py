@@ -168,7 +168,7 @@ class VulnGen:
         self._set_orig_bufsize(buf_arg, problem_scope, new_func.decl.name)
 
     def create_problem(self, problem: Problem):
-        if not problem.is_real_problem():
+        if problem.is_real_problem():
             vuln_idx, new_problems = self._divide_fmtstr(problem)
             if not new_problems:
                 return False

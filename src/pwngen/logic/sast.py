@@ -48,7 +48,7 @@ class Problem:
 
     def is_real_problem(self) -> bool:
         args = self._args
-        len_args = len(args.exprs) == 2
+        len_args = len(args.exprs) != 2
         sure = self._fn in self._unsure
         return sure and len_args
 
@@ -62,7 +62,6 @@ class Problem:
 
     def analyze_context(self) -> bool:
         possible, text, fmt_str = self.parse_fmt_str()
-        print(possible, text, fmt_str)
         return True if fmt_str else False
         
 class SAST:
