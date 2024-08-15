@@ -14,6 +14,23 @@ void input_gets_bof(char *buf) {
     strcpy(buf, buffer);
 }
 
+void input_fgets_bof(char *buf){
+    char filler[64];
+    char buffer[64];
+    fgets(buffer, sizeof(filler) + sizeof(buffer) + 64, stdin);
+    strcpy(buf, buffer);
+}
+
+void input_fgets_bof_canary(char *buf){
+    int canary = 0x20;
+    char filler[64];
+    char buffer[64];
+    fgets(buffer, sizeof(filler) + sizeof(buffer) + 64, stdin);
+    if (canary != 0x20)
+        exit(127);
+    strcpy(buf, buffer);
+}
+
 void input_gets_bof_canary(char *buf) {
     int canary = 0x20;
     char filler[64];
@@ -47,6 +64,12 @@ void append_input_bof(char *buf) {
 
 void leak_stack_printf(char *buf) {
     printf(buf);
+}
+
+void leak_stack_printf_custom(char *buf, int *a) {
+    printf("Prev");
+    printf("FMT", buf);
+    printf("POST");
 }
 
 void leak_stack_sprintf(char *buf, char *dest) {
