@@ -36,10 +36,12 @@ class CLI:
             ast = AstProcessor(self._args['input'])
             generator = VulnGen(ast)
             generator.inject_vulns()
-            output = self._args.get("output", "out.c")
+            output = self._args.get("output", "out")
             c_input = self._args.get("input", "")
-            ast.save_c(output)
             gcc_flags = generator.get_compiler_syntax()
+            ast.save_c(f"{output}.c", gcc_flags)
+            # ast.insert_compiler(f"{output}.c", gcc_flags)
+
             if self._args.get('compile'):
                 compiler = Compiler(args=gcc_flags, c_input=c_input, output=output)
                 compiler.compile()
