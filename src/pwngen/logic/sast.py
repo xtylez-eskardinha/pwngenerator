@@ -3,7 +3,10 @@ from pwngen.parsers.ast import AstProcessor
 from pycparser import c_ast
 from z3 import Not
 from pwngen.parsers.pwnable import Vulnerabilities
+import structlog
 import re
+
+logger = structlog.get_logger(__file__)
 
 
 class Problem:
@@ -30,6 +33,7 @@ class Problem:
             "printf"
         ]
         self._args = self._call.args
+        logger.info("Problematic case generated", fn=fn, scope=scope)
 
     def get_stack(self) -> list[Any]:
         return self._stack
@@ -87,11 +91,13 @@ class SAST:
         self._problem = []
         self._stack = []
         self._vars = {}
+        logger.info("Initializing SAST")
 
     def _parse_assignment(
         self, ast: c_ast.Assignment, scope: str = "globals"
     ) -> tuple[str, str, str | None, list | None]:
         assert isinstance(ast, c_ast.Assignment)
+        logger.debug("Parsing assignment", ast=type(ast), scope=scope)
         var = ast.lvalue
 
         while isinstance(var, c_ast.ID):
@@ -135,6 +141,7 @@ class SAST:
         return " ".join([str(left), str(op), str(right)])
 
     def _get_cond(self, ast: c_ast.If):
+        logger.debug("Parsing if conditions", ast=type(ast))
         if isinstance(ast.cond, c_ast.FuncCall):
             return f"{ast.cond.name.name} == 255"
         else:
@@ -143,6 +150,7 @@ class SAST:
         return cond
 
     def _parse_typedecl(self, ast: c_ast.TypeDecl, scope: str = "globals"):
+        logger.debug("Parsing type declaration", ast=type(ast), scope=scope)
         # print(ast)
         if isinstance(ast.type, c_ast.Struct):
             return ast.type.name
@@ -153,6 +161,7 @@ class SAST:
     #     if isinstance(ast, c_ast.ArrayDecl):
 
     def _parse_decl(self, ast: c_ast.Decl | c_ast.ArrayDecl, scope: str = "globals"):
+        logger.debug("Parsing declaration", ast=type(ast), scope=scope)
         if scope not in self._vars:
             self._vars[scope] = {}
 
@@ -184,8 +193,10 @@ class SAST:
         return self._parse_typedecl(ast.type)
 
     def _parse_fndef(self, ast: c_ast.FuncDef):
+        logger.debug("Parsing function definition", func=ast.decl.name)
         kind = self._parse_fndecl(ast.decl)
         scope = ast.decl.name
+        logger.debug("Changing scope for function declaration", scope=scope)
         return scope, kind
 
     def create_stack(
@@ -208,6 +219,7 @@ class SAST:
         stack: list = [],
         scope: str = "globals",
     ):
+        logger.debug("Parsing the stack...", scope=scope, ast=type(ast))
         # print(self._problem)
         if ast is None and not stack:
             ast = self._ast._code
@@ -232,6 +244,7 @@ class SAST:
             # print(var, op, value, args)
             return
         elif isinstance(ast, c_ast.FuncCall):
+            print(ast)
             if ast.name.name in self._vulns.get_dangerous():
                 tmp = stack[:]
                 self._problem.append(
