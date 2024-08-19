@@ -3,7 +3,7 @@ import itertools
 from typing import Any
 from pwngen.logic.sast import SAST, Problem
 from pwngen.parsers.ast import AstProcessor
-from pwngen.parsers.exprs import ExprList
+# from pwngen.parsers.exprs import ExprList
 from pwngen.parsers.pwnable import Vulnerabilities
 from pycparser import c_ast
 from random import randint, choice
