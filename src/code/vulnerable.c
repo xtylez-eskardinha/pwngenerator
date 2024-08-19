@@ -62,6 +62,10 @@ void append_input_bof(char *buf) {
     strcat(buf, buffer);
 }
 
+void easy_leak() {
+    printf("Here you have a gift: %x %x %x %x %x %x %x %x %x %x %x %x\n");
+}
+
 void leak_stack_printf(char *buf) {
     printf(buf);
 }

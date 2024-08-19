@@ -7,6 +7,9 @@ from pwngen.parsers.exprs import ExprList
 from pwngen.parsers.pwnable import Vulnerabilities
 from pycparser import c_ast
 from random import randint, choice
+import structlog
+
+logger = structlog.get_logger(__file__)
 
 class Vuln:
     _fncall: c_ast.FuncCall
@@ -28,13 +31,15 @@ class VulnGen:
     _sast: SAST
     _vulns: Vulnerabilities
     _gen: list[Vuln]
+    _inject_leak: bool
 
-    def __init__(self, ast: AstProcessor, difficulty: int = 0):
+    def __init__(self, ast: AstProcessor, difficulty: int = 0, leak: bool = False):
         self._ast = ast
         self._sast = SAST(self._ast)
         self._vulns = self._sast.get_vulns_class()
         self._sast.create_stack()
         self._difficulty = difficulty
+        self._inject_leak = difficulty > 2 or leak
 
     def _func_generator(self, kind: str) -> c_ast.FuncDef:
         danger = self._vulns.get_vuln_fndefs()
@@ -42,14 +47,16 @@ class VulnGen:
         vuln_kind = ""
         if kind == "ret2win":
             return danger["ret2win"]
+        elif kind == "easy_leak":
+            return danger["easy_leak"]
         for possible in vuln_kinds:
             if kind in vuln_kinds[possible]:
                 vuln_kind = possible
         # print(f'{vuln_kind}_gets_bof')
         if self._difficulty == 0:
-            return deepcopy(danger[f'{vuln_kind}_{kind}_bof'])
+            return deepcopy(danger[f'input_{kind}_{vuln_kind}'])
         else:
-            return deepcopy(danger[f'{vuln_kind}_{kind}_bof_canary'])
+            return deepcopy(danger[f'input_{kind}_{vuln_kind}_canary'])
 
     def _set_orig_bufsize(
             self,
@@ -134,16 +141,37 @@ class VulnGen:
         return idx, returner
         # return args_copy.exprs.pop(idx+1)
 
+    def _generate_fncall(self, fndef: c_ast.FuncDef) -> c_ast.FuncCall:
+        fn_name = fndef.decl.name
+        fncall = c_ast.FuncCall(
+            c_ast.ID(name=fn_name), args=None)
+        logger.debug("FNCall generated", fncall=str(fncall))
+        return fncall
+
     def _process_problems(self) -> bool:
         modified = []
         problems = self._sast.get_problems()
+        logger.info("Starting processing problems", difficulty=self._difficulty, num_problems=len(problems))
         # print(self._ast._fncalls)
-        if self._difficulty == 0:
+        if self._difficulty < 2:
             ret2win = self._func_generator("ret2win")
             self._ast.insert_fndef(ret2win)
+            logger.info("ret2win injected!")
+        # elif self._difficulty < 3 or self._inject_leak:
+            printf_leak = self._func_generator("easy_leak")
+            self._ast.insert_fndef(printf_leak)
+            printf_leak_call = self._generate_fncall(printf_leak)
+            self._ast.insert_funccall(0, printf_leak_call, "main")
+            logger.info("Stack leak injected :)")
+
         if not problems:
+            logger.error("No problems found...")
             return False
         for problem in problems:
+            logger.info(
+                "Processing problem",
+                fn_name=problem.get_fn_name(),
+                fn_scope=problem.get_fn_scope())
             self.create_problem(problem)
             
         return True
@@ -169,9 +197,12 @@ class VulnGen:
 
     def create_problem(self, problem: Problem):
         if problem.is_real_problem():
+            logger.info("Problem might not be a real problem, analyzing context")
             vuln_idx, new_problems = self._divide_fmtstr(problem)
             if not new_problems:
+                logger.warning("This problem isnt explotable...", fn_name=problem.get_fn_name(), args=problem.get_args())
                 return False
+            logger.info("Problem vulnerability index and problems found", vuln_idx=vuln_idx, new_problems=new_problems)
             prob_scope = problem.get_fn_scope()
             fn_idx = self._ast.locate_fncall(
                 problem.get_fncall(), prob_scope)

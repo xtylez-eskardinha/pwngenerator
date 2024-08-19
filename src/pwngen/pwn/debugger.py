@@ -36,7 +36,7 @@ class Debugger(object):
         if  self._addr and self._port > 0:
             self._gdb.Breakpoint("accept", temporary=True)
             self.finish_breakpoint(False)
-            sleep(5)
+            sleep(1)
             self._io = remote(self._addr, self._port)
         # self._init_gdb()
 
