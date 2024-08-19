@@ -62,11 +62,53 @@ class Printf(Function):
         super().__init__(*args, **kwargs)
 
 
+class Dangerous:
+    _arg_size: int
+    _input: int
+    _output: int
+    _kinds: list[str]
+    _vulns: list[str]
+    _custom: list[str]
+
+    def __init__(
+            self,
+            arg_size: int,
+            input_arg: int,
+            output_arg: int,
+            fn_kinds: list[str],
+            vuln_kinds: list[str],
+            custom: list[str] = []
+            ):
+        self._arg_size = arg_size
+        self._input = input_arg
+        self._output = output_arg
+        self._kinds = fn_kinds
+        self._vulns = vuln_kinds
+        self._custom = custom
+
+    def get_args_length(self) -> int:
+        return self._arg_size
+    
+    def get_input_arg(self) -> int:
+        return self._input
+    
+    def get_output_arg(self) -> int:
+        return self._output
+    
+    def get_fn_kinds(self) -> list[str]:
+        return self._kinds
+    
+    def get_vuln_kinds(self) -> list[str]:
+        return self._vulns
+    
+    def get_customs(self) -> list[str]:
+        return self._custom
+
 class Vulnerabilities(object):
 
     _dangerous = {
-        "gets": {"args": 1, "out": 0},
-        "gets_s": {"args": 2, "out": 0, "size": 1},
+        "gets": {"args": 1, "out": 0, "kind": "input", "vuln": ["bof"]},
+        "gets_s": {"args": 2, "out": 0, "size": 1, "kind": "input"},
         "fgets": {"args": 3, "in": 2, "size": 1, "out": 0},
         "strcpy": {"args": 2, "out": 0, "in": 1},
         "strcat": {
@@ -116,6 +158,7 @@ class Vulnerabilities(object):
     _bof = [
         "gets",
         "gets_s",
+        "fgets",
         "strcpy",
         "scanf",
         "strncat",
@@ -125,7 +168,8 @@ class Vulnerabilities(object):
     ]
 
     _leaks = [
-        
+        "printf",
+        "sprintf"
     ]
 
     _input = [
@@ -154,7 +198,8 @@ class Vulnerabilities(object):
     def get_vulnerability_types(self) -> dict[str, list]:
         return {
             "input": self._input,
-            "leak": self._leaks
+            "leak": self._leaks,
+            "bof": self._bof
         }
 
     def get_vuln_fndefs(self):

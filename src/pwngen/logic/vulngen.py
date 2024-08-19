@@ -38,7 +38,7 @@ class VulnGen:
         self._sast = SAST(self._ast)
         self._vulns = self._sast.get_vulns_class()
         self._sast.create_stack()
-        self._difficulty = difficulty
+        self._difficulty = min(difficulty, 5)
         self._inject_leak = difficulty > 2 or leak
 
     def _func_generator(self, kind: str) -> c_ast.FuncDef:
@@ -233,15 +233,27 @@ class VulnGen:
 
     def get_compiler_syntax(self, data_model: str = "32") -> list[str]:
         returner = [f"-m{data_model}"]
-        if self._difficulty == 0:
+        if self._difficulty > 3:
+            returner.append("-fstack-protector-strong")
+            returner.append("-pie")
+            returner.append("-znoexecstack")
+        elif self._difficulty > 2:
+            returner.append("-fstack-protector-strong")
+            returner.append("-pie")
+            returner.append("-znoexecstack")
+            returner.append("-static")
+        elif self._difficulty > 1:
+            returner.append("-fstack-protector-strong")
+            returner.append("-no-pie")
+            returner.append("-static")
+        elif self._difficulty > 0:
+            returner.append("-fno-stack-protector")
+            returner.append("-znoexecstack")
+            returner.append("-static")
+            returner.append("-no-pie")
+        elif self._difficulty >= 0:
             returner.append("-static")
             returner.append("-fno-stack-protector")
             returner.append("-no-pie")
             returner.append("-zexecstack")
-        if self._difficulty > 1:
-            returner.append("-znoexecstack")
-        if self._difficulty > 2:
-            returner.append("-fstack-protector-strong")
-        if self._difficulty > 3:
-            returner.append("-fPIE -pie")
         return returner

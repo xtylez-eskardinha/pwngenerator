@@ -51,6 +51,13 @@ class Args:
             required=False
         )
 
+        self._parser.add_argument(
+            "-d", "--difficulty",
+            type=int,
+            help="Difficulty for the vulnerable program, affects compiler mitigations generally, 0 lowest 5 highest",
+            default=0
+        )
+
     def _is_valid_file(self, arg):
         if not os.path.isfile(arg):
             self._parser.error(f"The file {arg} does not exist!")
