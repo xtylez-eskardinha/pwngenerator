@@ -66,7 +66,6 @@ class Problem:
         text = re.split(r"(?<!%)%(?!%)[0-9]*[diouxefgcs]", parameter)
         fmt_str = re.findall(r"(?<!%)%(?!%)[0-9]*[cs]", parameter)
         logger.debug("Testing formats", formats=formats, text=text, fmt_str=fmt_str)
-        print(formats, text, fmt_str)
         return formats, text, fmt_str
 
     def analyze_context(self) -> bool:
