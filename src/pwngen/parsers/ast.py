@@ -86,6 +86,8 @@ class AstProcessor:
         for node in self._ast.ext:
             if not isinstance(node, c_ast.Typedef):
                 if isinstance(node, c_ast.Decl):
+                    if isinstance(node.type, c_ast.ArrayDecl):
+                        return node.type.type.declname
                     return node.type.name
                 elif isinstance(node, c_ast.FuncDef):
                     return node.decl.name
@@ -323,7 +325,6 @@ class AstProcessor:
 
     def get_fn_call_args(self, fn: c_ast.FuncCall) -> dict:
         returner = {}
-        print(fn)
         if not isinstance(fn, c_ast.FuncCall):
             return returner
         else:
