@@ -17,7 +17,7 @@ void input_gets_bof(char *buf) {
 void input_fgets_bof(char *buf){
     char filler[64];
     char buffer[64];
-    fgets(buffer, sizeof(filler) + sizeof(buffer) + 64, stdin);
+    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
     strcpy(buf, buffer);
 }
 
@@ -25,7 +25,7 @@ void input_fgets_bof_canary(char *buf){
     int canary = 0x20;
     char filler[64];
     char buffer[64];
-    fgets(buffer, sizeof(filler) + sizeof(buffer) + 64, stdin);
+    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
     if (canary != 0x20)
         exit(127);
     strcpy(buf, buffer);
@@ -63,7 +63,16 @@ void append_input_bof(char *buf) {
 }
 
 void easy_leak() {
-    printf("Here you have a gift: %x %x %x %x %x %x %x %x %x %x %x %x\n");
+    do
+    {
+        printf("\nBut first, I'll print what you type, take it as a gift: ");
+        char* init[32];
+        fgets(init, sizeof(init), stdin);
+        printf(init);
+        printf("\n");
+        printf("Now you can continue with what I asked you before :) \n");
+        /* code */
+    } while (0);
 }
 
 void leak_stack_printf(char *buf) {

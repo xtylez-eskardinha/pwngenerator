@@ -141,7 +141,17 @@ class VulnGen:
         return idx, returner
         # return args_copy.exprs.pop(idx+1)
 
-    def _generate_fncall(self, fndef: c_ast.FuncDef) -> c_ast.FuncCall:
+    def _generate_exprlist(self, args: list[c_ast.ID | c_ast.Constant]) -> c_ast.ExprList:
+        return c_ast.ExprList(exprs=args)
+
+    def _generate_fncall_raw(self, fn: str, args: ExprList | None) -> c_ast.FuncCall:
+        fncall = c_ast.FuncCall(
+            c_ast.ID(name=fn), args=args
+        )
+        logger.debug("Raw FNCall generated", fncall=str(fncall))
+        return fncall
+
+    def _generate_fncall_fndef(self, fndef: c_ast.FuncDef) -> c_ast.FuncCall:
         fn_name = fndef.decl.name
         fncall = c_ast.FuncCall(
             c_ast.ID(name=fn_name), args=None)
@@ -153,16 +163,6 @@ class VulnGen:
         problems = self._sast.get_problems()
         logger.info("Starting processing problems", difficulty=self._difficulty, num_problems=len(problems))
         # print(self._ast._fncalls)
-        if self._difficulty < 2:
-            ret2win = self._func_generator("ret2win")
-            self._ast.insert_fndef(ret2win)
-            logger.info("ret2win injected!")
-        # elif self._difficulty < 3 or self._inject_leak:
-            printf_leak = self._func_generator("easy_leak")
-            self._ast.insert_fndef(printf_leak)
-            printf_leak_call = self._generate_fncall(printf_leak)
-            self._ast.insert_funccall(0, printf_leak_call, "main")
-            logger.info("Stack leak injected :)")
 
         if not problems:
             logger.error("No problems found...")
@@ -172,21 +172,37 @@ class VulnGen:
                 "Processing problem",
                 fn_name=problem.get_fn_name(),
                 fn_scope=problem.get_fn_scope())
-            self.create_problem(problem)
-            
+            modified.append(self.create_problem(problem))
+
+        if self._difficulty < 2:
+            ret2win = self._func_generator("ret2win")
+            self._ast.insert_fndef(ret2win)
+            logger.info("ret2win injected!")
+        elif self._inject_leak:
+            printf_leak_origin = self._func_generator("easy_leak")
+            printf_leak_call = printf_leak_origin.body.block_items[0]
+            # printf_args = c_ast.Constant(
+            #     type='string', value='Here you have a gift: %x %x %x %x %x %x %x %x %x %x %x %x\n')
+            # self._ast.insert_fndef(printf_leak)
+            # printf_leak_call = self._generate_fncall_fndef(printf_leak)
+            print(modified)
+            self._ast.insert_funccall(0, printf_leak_call, modified[0])
+            logger.info("Stack leak injected :)")
+
         return True
         # print(problems)
         # print(self._vulns._vulnfuncsdict)
 
-    def _create_vuln(self, problem: Problem):
+    def _create_vuln(self, problem: Problem) -> str:
+        vuln_name = f"input_{randint(0, 100)}"
         kind = problem.get_fn_name()
         fncall = problem.get_fncall()
         problem_scope = problem.get_fn_scope()
         new_func = self._func_generator(kind)
         if not new_func:
-            return False
+            return ""
         self._ast.insert_fndef(new_func)
-        self._ast.change_funcname(new_func.decl.name, f"input_{randint(0, 100)}")
+        self._ast.change_funcname(new_func.decl.name, vuln_name)
         self._change_args(fncall, new_func)
         buf_arg = fncall.args.exprs[0]
         # if fncall.name.name == "scanf":
@@ -194,6 +210,7 @@ class VulnGen:
         self._swap_funcs(fncall, new_func)
         self._change_vuln_bufsize(new_func.decl.name)
         self._set_orig_bufsize(buf_arg, problem_scope, new_func.decl.name)
+        return vuln_name
 
     def create_problem(self, problem: Problem):
         if problem.is_real_problem():
@@ -219,8 +236,7 @@ class VulnGen:
             prob_args.exprs[0].value = f'"{prob_pos[vuln_idx]}"'
             del prob_args.exprs[vuln_idx+2:]
             del prob_args.exprs[1:vuln_idx+1]
-        self._create_vuln(problem)
-        return True
+        return self._create_vuln(problem)
 
     def inject_vulns(self):
         return self._process_problems()
