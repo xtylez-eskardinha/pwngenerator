@@ -24,5 +24,7 @@ class Compiler():
                 # env={'PATH': str(os.environ)}
             )
         except CalledProcessError as e:
-            print(e.stdout)
-            print(e.stderr)
+            if e.stdout:
+                print(e.stdout)
+            if e.stderr:
+                print(e.stderr)
