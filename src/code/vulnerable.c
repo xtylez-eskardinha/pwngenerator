@@ -48,6 +48,17 @@ void input_scanf_bof(char *buf) {
     strcpy(buf, buffer);
 }
 
+void input_scanf_bof_canary(char *buf) {
+    int canary = 0x20;
+    char filler[64];
+    char buffer[64];
+    scanf("%s", buffer);
+    if (canary != 0x20)
+        exit(127);
+    strcpy(buf, buffer);
+}
+
+
 void input_strcpy_bof(char *buf) {
     char filler[64];
     char buffer2[64];
