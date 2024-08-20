@@ -59,9 +59,14 @@ class Problem:
     def parse_fmt_str(self) -> tuple[list[str], list[str], list[str]]:
         args = self._args
         parameter = args.exprs[0].value.strip().strip('\"')
-        formats = re.findall(r"%[0-9]*[diouxefgcs]", parameter)
-        text = re.split(r"%[0-9]*[diouxefgcs]", parameter)
-        fmt_str = re.findall(r"%[0-9]*[cs]", parameter)
+        # formats = re.findall(r"%[0-9]*[diouxefgcs]", parameter)
+        # text = re.split(r"%[0-9]*[diouxefgcs]", parameter)
+        # fmt_str = re.findall(r"%[0-9]*[cs]", parameter)
+        formats = re.findall(r"(?<!%)%(?!%)[0-9]*[diouxefgcs]", parameter)
+        text = re.split(r"(?<!%)%(?!%)[0-9]*[diouxefgcs]", parameter)
+        fmt_str = re.findall(r"(?<!%)%(?!%)[0-9]*[diouxefgcs]", parameter)
+        logger.debug("Testing formats", formats=formats, text=text, fmt_str=fmt_str)
+        print(formats, text, fmt_str)
         return formats, text, fmt_str
 
     def analyze_context(self) -> bool:
@@ -244,7 +249,6 @@ class SAST:
             # print(var, op, value, args)
             return
         elif isinstance(ast, c_ast.FuncCall):
-            print(ast)
             if ast.name.name in self._vulns.get_dangerous():
                 tmp = stack[:]
                 self._problem.append(
