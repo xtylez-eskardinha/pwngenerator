@@ -3,7 +3,6 @@ import itertools
 from typing import Any
 from pwngen.logic.sast import SAST, Problem
 from pwngen.parsers.ast import AstProcessor
-# from pwngen.parsers.exprs import ExprList
 from pwngen.parsers.pwnable import Vulnerabilities
 from pycparser import c_ast
 from random import randint, choice
@@ -68,14 +67,25 @@ class VulnGen:
             orig_buff = orig_buff.expr
         out_var = self._ast.get_var_fromid(orig_buff, orig_fn_scope) # type: ignore
         if isinstance(out_var, c_ast.Decl):
-            size = self._ast.get_arraydecl_size(out_var, orig_fn_scope)[-1]
-            self._ast.change_stack_buffsize("buffer", size[0], size[1], dest_fndef)
-            return True
+            if isinstance(out_var.type, c_ast.ArrayDecl):
+                size = self._ast.get_arraydecl_size(out_var, orig_fn_scope)[-1]
+                self._ast.change_stack_buffsize("buffer", size[0], size[1], dest_fndef)
+                return True
         else:
             return False
 
     def _adapt_format_args(self, fn_descr: dict, fndef: c_ast.FuncDef, args: c_ast.ExprList):
         return
+
+    def _test_args(self, fncall: c_ast.FuncCall, problem_scope: str) -> bool:
+        func_descr = self._vulns._dangerous.get(fncall.name.name)
+        if func_descr:
+            if func_descr['out']:
+                buf_arg = fncall.args.exprs[func_descr['out']]
+        if isinstance(buf_arg, c_ast.UnaryOp):
+            buf_arg = buf_arg.expr
+        buf_var = self._ast.get_var_fromid(buf_arg, problem_scope)
+        return isinstance(buf_var.type, c_ast.ArrayDecl)
 
     def _change_args(self, fncall: c_ast.FuncCall, fndef: c_ast.FuncDef) -> None:
         func_descr = self._vulns._dangerous.get(fncall.name.name)
@@ -144,7 +154,7 @@ class VulnGen:
     def _generate_exprlist(self, args: list[c_ast.ID | c_ast.Constant]) -> c_ast.ExprList:
         return c_ast.ExprList(exprs=args)
 
-    def _generate_fncall_raw(self, fn: str, args: ExprList | None) -> c_ast.FuncCall:
+    def _generate_fncall_raw(self, fn: str, args: c_ast.ExprList | None) -> c_ast.FuncCall:
         fncall = c_ast.FuncCall(
             c_ast.ID(name=fn), args=args
         )
@@ -185,7 +195,6 @@ class VulnGen:
             #     type='string', value='Here you have a gift: %x %x %x %x %x %x %x %x %x %x %x %x\n')
             # self._ast.insert_fndef(printf_leak)
             # printf_leak_call = self._generate_fncall_fndef(printf_leak)
-            print(modified)
             self._ast.insert_funccall(0, printf_leak_call, modified[0])
             logger.info("Stack leak injected :)")
 
@@ -198,6 +207,8 @@ class VulnGen:
         kind = problem.get_fn_name()
         fncall = problem.get_fncall()
         problem_scope = problem.get_fn_scope()
+        if not self._test_args(fncall, problem_scope):
+            return ""
         new_func = self._func_generator(kind)
         if not new_func:
             return ""
@@ -210,6 +221,7 @@ class VulnGen:
         self._swap_funcs(fncall, new_func)
         self._change_vuln_bufsize(new_func.decl.name)
         self._set_orig_bufsize(buf_arg, problem_scope, new_func.decl.name)
+        # logger.debug("Debugging vuln", )
         return vuln_name
 
     def create_problem(self, problem: Problem):
