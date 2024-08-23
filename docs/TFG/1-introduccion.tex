@@ -1,0 +1,11 @@
+Con el paso del tiempo, la ciberseguridad se ha convertido en un campo de mucha relevancia
+en el sector de las telecomunicaciones e informática.
+
+Desde la invención y adopción de internet, los equipos informáticos cada día están más expuestos
+al mundo, y debido a esto, es de vital importancia asegurarse que estos dispositivos son seguros y no tienen vulnerabilidades que puedan permitir a un actor maligno tomar el control.
+
+La vulnerabilidad del tipo `\acrfull{bof}' o `Desbordamiento de buffer', fue una de las primeras vulnerabilidades usadas para explotar sistemas remotos sin interacción de los usuarios. El mecanismo de explotación fue documentado por primera vez en 1972 por la \acrfull{usaf}, sin embargo, no fue hasta 1988 cuando se descubrió el primer gusano llamado Morris \cite{Morris} el cual entre las diferentes técnicas de explotación hacía uso de un \acrshort{bof} sobre el servicio `fingerd' \cite{Fingerd}.
+
+Con el paso del tiempo y debido a los nuevos lenguajes de programación que han ido surgiendo, los \acrshort{bof} se han vuelto menos comunes, debido a que estos nuevos lenguajes abstraen al usuario de la gestión de la memoria e interactúan con el sistema de una forma más segura y controlada. Sin embargo, esta vulnerabilidad sigue siendo crítica, ya que aunque el lenguaje abstraiga al programador de la gestión de memoria, el propio compilador del lenguaje podría tener este tipo de errores o alguna librería externa que se inserte en el código.
+
+Este trabajo fin de estudios se centra en el desarrollo de un sistema automatizado para la generación de códigos en lenguaje C que contienen vulnerabilidades intencionales. Este sistema permite a los usuarios practicar diversas técnicas de explotación de binarios, como el \acrshort{bof}, la ejecución de código arbitrario y la manipulación de la memoria, en un entorno seguro y educativo. Al proporcionar códigos vulnerables de manera automatizada, el proyecto busca facilitar el proceso de aprendizaje, permitiendo a los estudiantes enfocarse en la identificación y explotación de vulnerabilidades en lugar de en la creación de escenarios manualmente.

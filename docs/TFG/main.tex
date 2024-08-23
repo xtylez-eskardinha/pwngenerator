@@ -1,6 +1,75 @@
 % !TEX root = main.tex
 
-\documentclass[11pt, a4paper]{book}
+\documentclass[12pt, a4paper, anyside]{book}
+\renewcommand{\chaptername}{Capítulo}
+\usepackage[utf8]{inputenc}
+\usepackage{csquotes}
+\usepackage[spanish]{babel}
+\usepackage[
+backend=biber,
+style=alphabetic,
+style=ieee
+]{biblatex}
+\addbibresource{referencias.bib}
+\usepackage[skip=10pt plus1pt, indent=20pt]{parskip}
+\usepackage{indentfirst}
+\usepackage[acronym]{glossaries}
+\usepackage{listings}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{tocbibind}
+\geometry{left=2cm,right=2cm,top=2cm,bottom=2cm}
+%
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\graphicspath{ {images/} }
+\usepackage{placeins}
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{3}
+\renewcommand\lstlistlistingname{Snippets de código}
+\renewcommand{\lstlistingname}{Snippet}
+
+%
+
+%
+\usepackage{url}
+\input{glosario}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
 \begin{document}
-\include{resumen}
+\include{0-resumen}
+\printglossary[type=\acronymtype]
+\tableofcontents
+\include{trabajo}
+\printbibliography[
+heading=bibintoc,
+title={Referencias}
+]
+\listoffigures
+\lstlistoflistings
 \end{document}
