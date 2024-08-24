@@ -2,9 +2,7 @@
 from typing import Any
 from pycparser import parse_file, c_ast, c_generator
 from pwngen.parsers.utils import Decls, from_dict, to_dict, to_json
-from pwngen.parsers.visitors import funcDefs, funcCalls
-from z3 import *
-import json
+from pwngen.parsers.visitors import funcCalls
 
 
 class AstProcessor:
