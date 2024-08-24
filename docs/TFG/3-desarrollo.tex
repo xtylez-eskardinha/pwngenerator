@@ -1,5 +1,4 @@
-En esta sección se describe técnicamente parte por parte cómo se ha planificado el proyecto.
-El trabajo está dividido en tres secciones: análisis del código C, inyección de vulnerabilidades y soluciones a los retos.
+En esta sección se describe técnicamente parte por parte cómo se ha planificado el proyecto. El trabajo está dividido en tres secciones: análisis del código C, inyección de vulnerabilidades y soluciones a los retos.
 
 En la primera sección, se explican las herramientas utilizadas para analizar los códigos fuentes de entrada y como se manejan los mismos.
 
@@ -74,7 +73,7 @@ El funcionamiento de la librería es complejo, por debajo emplea el metodo Lex (
 \subsection{Análisis del código C con Python}
 El software desarrollado implementa dos clases principales. La primera clase se encarga de procesar el código C, convertirlo en un \acrshort{ast} utilizando la librería `pycparser', y modificar este árbol para introducir cambios estructurales, como por ejemplo, las vulnerabilidades, esta clase se llama `AstProcessor'. La segunda clase se especializa en analizar el \acrshort{ast} generado, buscando puntos críticos donde se puedan inyectar vulnerabilidades de manera deliberada, tiene el nombre de `VulnGen'.
 
-\subsubsection{AstProcessor}
+\subsubsection{AstProcessor} \label{subsub:astproc}
 Esta clase de Python únicamente hace uso de la librería `pycparser'. En ella se han implementado todas las funcionalidades importantes que permiten analizar, modificar, guardar y compilar el código.
 
 El flujo para el procesado del código fuente comienza mediante el cargado del fichero en la librería. Para traducir el archivo a un \acrshort{ast}, el paquete hace uso de unas cabeceras modificadas de la \acrfull{libc} y del compilador \acrfull{gcc}. Para ello, las flags que se han añadido en el compilador son las siguientes:
@@ -120,10 +119,29 @@ int main()
 
 En el resultado se puede ver que arroja un texto con valor numérico diferente según el scope donde fue ejecutada la instrucción de imprimir por pantalla.
 
+\subsubsection{\acrshort{sast}} \label{subsub:sast}
+\acrshort{sast} es la clase encargada de localizar posibles funciones peligrosas.
+Se hace uso de los \acrshort{ast} y se analiza de forma recursiva el árbol tratando de simular un procesado del `stack'. El concepto de `stack' se explica en el apartado \ref{subsub:bofstack}.
+
+A día de la entrega del proyecto, la funcionalidad es reducida debido a que no es capaz de localizar vulnerabilidades. Cuando se procesan los diferentes tipos de asignaciones y llamadas, se revisa cuales de estas pueden ser peligrosas basado en una lista de llamadas a funciones que tratan con buffers o entrada del usuario.
+Cuando se detecta una llamada peligrosa, por ejemplo, un `scanf', se genera un `problema' con todos los datos relevantes sobre la llamada: scope, stack (representa bajo qué condición se llama la función) y el \acrshort{ast} de la llamada.
+
+Según las condiciones en las cuales se ha ejecutado la función vulnerable, se da un veredicto sobre si es un punto de inyección de vulnerabilidades, por ejemplo:
+
+\begin{lstlisting}[language=C, caption=Funciones peligrosas]
+int a = 1;
+char buffer[128];
+// Este codigo es una funcion vulnereable
+scanf("%s %d", buffer, &a);
+
+// Este codigo es una funcion no vulnerable
+scanf("%d %d", buffer, &a);
+\end{lstlisting}
+
 \subsubsection{VulnGen}
 Esta clase de Python es la encargada de realizar un análisis del \acrshort{ast} e inyectar las vulnerabilidades propuestas en la sección \ref{subsec:vulns}. Es la clase más compleja del software debido a que tiene que ser capaz de encontrar funciones que permitan sustituirlas por sus análogas vulnerables, asegurando que la explotación sucede en el punto esperado.
 
-La clase se construye sobre otras dos clases importantes: AstProcessor explicada en el punto anterior y la clase SAST, encargada de revisar el código y localizar posibles problemas.
+La clase se construye sobre otras dos clases importantes: AstProcessor explicada en el punto \ref{subsub:astproc} y la clase SAST mostrada anteriormente \ref{subsub:sast}, encargada de revisar el código y localizar posibles funciones peligrosas.
 
 \section{Vulnerabilidades}
 \subsection{Buffer Overflow}
