@@ -143,11 +143,98 @@ Esta clase de Python es la encargada de realizar un análisis del \acrshort{ast}
 
 La clase se construye sobre otras dos clases importantes: AstProcessor explicada en el punto \ref{subsub:astproc} y la clase SAST mostrada anteriormente \ref{subsub:sast}, encargada de revisar el código y localizar posibles funciones peligrosas.
 
+El flujo de trabajo es el siguiente:
+
+\begin{enumerate}
+    \item Se inicializa la clase VulnGen
+    \begin{enumerate}
+        \item Se inicializa la clase \acrshort{sast}
+        \item Se procesa todo el código \acrshort{ast}
+    \end{enumerate}
+    \item Se analizan los problemas recogidos en \acrshort{sast}
+    \begin{enumerate}
+        \item Se revisa si es intercambiable de forma directa, afecta a funciones con inputs del tipo `scanf' por ejemplo
+        \item En caso de no ser intercambiable, se analiza que argumento pudiera ser vulnerable y se divide la función en componentes
+        \item El problema original se aisla con el componente vulnerable
+    \end{enumerate}
+    \item Se crea la vulnerabilidad relacionada con un nivel de dificultad
+    \item Se cambia el tamaño del buffer vulnerable de forma aleatoria
+    \item Se fija el buffer donde se devuelven los datos al mismo tamaño que el original
+    \item Se intercambia la función original por la vulnerable, asegurando la misma funcionalidad
+\end{enumerate}
+
+Este flujo se representa gráficamente a continuación:
+
+
+\begin{tikzpicture}[node distance=2cm]
+        \node (start) [startstop] {VulnGen};
+        \node (sast) [process, right of=start, xshift=1.5cm] {Iniciar \acrshort{sast}};
+        \node (stack) [process, right of=sast, xshift=1.5cm] {Crear stack};
+        \node (problemas) [process, right of=stack, xshift=2cm] {Procesar problemas};
+        \node (intercambiable) [decision, below of=problemas, yshift=-1cm] {¿Intercambiable?};
+        \node (fmtstr) [process, left of=intercambiable, xshift=-2.5cm] {Dividir función};
+        \node (aislar) [process, left of=fmtstr, xshift=-2cm] {Aislar problema};
+        \node (genvuln) [process, below of=aislar, yshift=-0.5cm] {Generar vulnerabilidad};
+        \node (bufvuln) [process, below of=genvuln] {Aleatorizar buffer vulnerable};
+        \node (buforig) [process, below of=bufvuln, xshift=-1.25cm] {Fijar buffer original en fn vulnerable};
+        \node (intercambiofn) [process, right of=buforig, xshift=4.5cm] {Intercambio de funciones};
+        \node (fin) [startstop, right of=intercambiofn, xshift=2.5cm] {Fin};
+        \draw [arrow] (start) -- (sast);
+        \draw [arrow] (sast) -- (stack);
+        \draw [arrow] (stack) -- (problemas);
+        \draw [arrow] (problemas) -- (intercambiable);
+        \draw [arrow] (intercambiable) -- node[anchor=south] {no} (fmtstr);
+        \draw [arrow] (intercambiable) |- node[anchor=west] {si} (genvuln);
+        \draw [arrow] (fmtstr) -- (aislar);
+        \draw [arrow] (aislar) -- (genvuln);
+        \draw [arrow] (genvuln) -- (bufvuln);
+        \draw [arrow] (bufvuln) -- (buforig);
+        \draw [arrow] (buforig) -- (intercambiofn);
+        \draw [arrow] (intercambiofn) -- (fin);
+\end{tikzpicture}
+
+A modo de ejemplo, el proceso puede resumirse en una entrada y una salida, tal y como se muestra en el siguiente bloque de código.
+\pagebreak
+\begin{lstlisting}[language=C, caption=Entrada y salida de VulnGen]
+// Codigo de entrada
+void main(){
+ char buffer[32];
+ int buffer2;
+ printf("dame tu nombre y tu edad separado por espacios: ");
+ scanf("%s %d",buffer,&buffer2);
+ printf("Tu nombre es %s y tu edad es %d\n", buffer, buffer2);
+}
+
+// Codigo de salida
+void input_66(char *buf){
+  char filler[837];
+  char buffer[32];
+  scanf("%s", buffer);
+  strcpy(buf, buffer);
+}
+
+void main(){
+  char buffer[32];
+  int buffer2;
+  printf("dame tu nombre y tu edad separado por espacios: ");
+  input_66(buffer);
+  scanf(" %d", &buffer2);
+  printf("Tu nombre es %s y tu edad es %d\n", buffer, buffer2);
+}
+\end{lstlisting}
+
+Como se puede observar en el ejemplo, la función vulnerable `scanf' se ha dividido en dos llamadas.
+La llamada para introducir el nombre en el buffer se intercambia por una función con el formato `input\_XXX' que toma como argumento el buffer destino.
+Además se añade una segunda llamada a la función `scanf' únicamente para procesar el entero manteniendo el comportamiento original.
+
 \section{Vulnerabilidades}
+Esta sección se centra en explicar qué es un \acrfull{bof}, cómo ocurre, y por qué es tan peligroso.
+Además, se explorán las diferentes técnicas de explotación y las mitigaciones introducidas en el paso del tiempo para reducir el riesgo de ataques críticos.
+Comprender los fundamentos y las implicaciones de los desbordamientos de buffer es esencial dado que sigue siendo una amenaza vigente en muchos sistemas actuales.
 \subsection{Buffer Overflow}
 \subsection{Mitigaciones introducidas en el compilado}
 \subsection{Evasión de mitigaciones}
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
 \section{Soluciones a los retos}
 \subsection{Tutoriales}
-\subsection{Ejemplos de Payloads}
+\subsection{Ejemplos de payloads}
