@@ -496,8 +496,12 @@ Cuando un binario se ejecuta, la dirección base de las librerías compartidas o
 Esta protección la gestiona el sistema operativo, se puede modificar su comportamiento mediante el fichero \path{/proc/sys/kernel/randomize_va_space}, un valor de 0 significa que está desactivado, un valor de 1 activa el \acrshort{aslr} y el valor 2 lo activa también en los segmentos de datos y la memoria gestionada con la función `brk()'.
 Esta técnica dificulta el uso de exploits del tipo `ret2libc'.
 \subsubsection{Position Independant Executable (PIE)}
-
+Esta medida aleatoriza la posición de memoria donde se carga el binario cada vez que se ejecuta.
+Para que el comportamiento del ejecutable no cambie las direcciones de memoria que usa son relativas en lugar de absolutas.
 \subsection{Evasión de mitigaciones}
+Las mitigaciones pueden evitar que un pequeño fallo programático se convierta en crítico dificultando a los atacantes alterar el flujo del binario con repercusiones fatales.
+Sin embargo, como bien indica la definición de mitigaciones, estas no aseguran que la explotación sea imposible.
+En esta sección se habla sobre cuales son las formas más comunes de saltarse las mitigaciones permitiendo vulnerar el programa.
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
 \section{Soluciones a los retos}
 \subsection{Tutoriales}
