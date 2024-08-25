@@ -292,7 +292,7 @@ Con lo explicado en el punto anterior se puede observar que si se modifica el va
 
 En el siguiente código C de ejemplo se puede observar que tenemos declarada una función peligrosa llamada `ret2win'. Esta no se ejecuta en ningún momento en el código, sin embargo, existe y puede ser ejecutada alterando el flujo normal del programa.
 
-\begin{lstlisting}[language=C, caption=Código vulnerable con función ret2win]
+\begin{lstlisting}[language=C, caption=Código vulnerable con función ret2win, label=snippet:simplebof]
 
 void ret2win(){
     system("/bin/sh");
@@ -398,13 +398,105 @@ Continuing.
 Dime algo: 
 
 Breakpoint 3, 0x080491ac in ret2win ()
-# Buffer overflow conseguido, se ha ejecutado la funcion ret2win
+# Stack Buffer overflow conseguido, se ha ejecutado la funcion ret2win
 \end{lstlisting}
 
 Con esta prueba de concepto, se puede entender el peligro de un \acrshort{bof}.
 Aunque en esta demostración se tuviera una función `ret2win' que permite ejecutar una consola, hay otras técnicas que permiten llegar al mismo punto mediante librerías comunes como \acrshort{libc}.
 
+\subsubsection{Diferencias entre 32bits y 64bits}
+En la actualidad, las arquitecturas están basadas en sistemas 64bits.
+Estas arquitecturas comparten gran parte de la convención de llamadas de 32bit, sin embargo, la forma en la que se comparten los parametros entre funciones se realiza de una forma diferente.
+En las arquitecturas 32bit los parametros se comparten mediante el stack como se ha referenciado en la figura \ref{fig:stack-arch}.
+En el caso de 64bit, los parametros se comparten mediante registros específicos. Además, el analogo al \acrshort{eip} que es el RIP en 64bits soporta direcciones de memoria menores a 0x00007FFFFFFFFFFF, es decir, 48bits.
+Dependiendo del sistema operativo se usan unos registros u otros para compartir los parámetros.
+
+Toda la información relacionada con la convención de llamadas de 64bit sobre linux se puede encontrar en el borrador publicado por la Linux Foundation \cite{x64asm}.
+
+\subsection{Vulnerabilidad tipo Format String}
+El bug de tipo format string fue descubierto a principios de los 2000.
+Al principio se consideró un bug, sin embargo, con el paso del tiempo se reconocieron los peligros que conllevaba este tipo de bug y pasó a considerarse una vulnerabilidad.
+
+La vulnerabilidad consiste en aprovecharse de funciones que imprimen texto con formato, es decir, funciones como `printf, sprintf' o similares.
+Estas funciones normalmente requieren de un parametro con una cadena de formato (llamado format string) y los demás argumentos que serán reemplazados en el format string.
+Por ejemplo, una cadena de format string con el valor `Me llamo \%s' con un argumento de tipo `char \*buffer = pepe' devolvería el texto completo `Me llamo pepe'.
+Sin embargo, si la cantidad de argumentos es menor a las sustituciones necesarias en la cadena de formato, las variables que se tomarán provendrán del stack.
+Además, las cadenas de formato contienen un parametro que permite escribir contenido al stack, con la cadena de formato `\%n' permite escribir 4 bytes a un puntero con el valor de la cuenta de los caracteres anteriores, es decir, si escribimos `ABCD\%n' el valor que almacenará en el puntero será 4.
+
+Si por algún motivo se tuviera una función vulnerable de este tipo dentro de un bucle, la probabilidad de que se convierta en una ejecución de código maligno es muy alta.
+
+En el siguiente fragmento de código se puede ver el resultado de una explotación satisfactoria de esta vulnerabilidad:
+\pagebreak
+\begin{lstlisting}[language=C, caption=Vulnerabilidad de tipo Format String]
+#include <stdio.h>
+#include <unistd.h>
+
+int main() {
+    int primer_secreto = 0xd3adb33f;
+    int segundo_secreto = 0x8badf00d;
+    char name[64] = {0};
+    fgets(name, sizeof(name), stdin);
+    printf("Hola ");
+    printf(name);
+    printf("! Nunca sabras mis secretos!\n");
+}
+\end{lstlisting}
+
+Si en el ejemplo anterior se introduce por pantalla el valor `\%7\$llx' el programa devolverá ambos secretos.
+
 \subsection{Mitigaciones introducidas en el compilado} \label{subsec:mitigaciones}
+Para evitar situaciones similares a las vistas anteriormente, con el paso del tiempo los compiladores han ido implementando mecanismos de seguridad que evitan que un simple \acrshort{bof} acabe en ejecución de código.
+Estas mitigaciones estan descritas en los siguientes puntos y se basan en evitar la corrupción de memoria.
+
+En la siguiente figura se puede ver de forma gráfica las mitigaciones introducidas a lo largo de los años. No todas están activadas por defecto en el compilador.
+
+\begin{figure}[htb!]
+    \centering                        
+    \includegraphics[width=0.9\textwidth]{images/mitigaciones.jpeg}
+    \caption{Mitigaciones (Escudo) y ataques (Diablo) ideados con el paso del tiempo}
+    \label{fig:mitigaciones}
+\end{figure}
+\FloatBarrier
+
+\subsubsection{No eXecute (NX)}
+Es la primera mitigación introducida en el compilado de binarios. Mediante esta medida de seguridad se evita que porciones del stack sean ejecutables.
+Por ejemplo, en un binario sin \acrshort{nx} activado, un usuario malicioso podría generar contenido en el stack tras un \acrshort{bof} y saltar a él mediante una instrucción del tipo `jmp esp' en el \acrshort{eip}, si el contenido del stack es una shellcode.
+
+La generación de una shellcode es posible mediante herramientas como `msfvenom'.
+Para cumplir con la explotación se debe localizar una instrucción en el binario del tipo `jmp esp' o `call esp' y sustituirla en el \acrshort{eip}. La shellcode generada debe ir con un preámbulo de instrucciones \acrfull{nop} (0x90) en caso de que no se pueda calcular con precisión dónde empezará a ejecutarse el código malicioso.
+
+Como prueba de concepto se puede hacer uso del siguiente código C.
+Está compilado para arquitecturas 32bit por lo cual la shellcode generada debe ser compatible con 32bit.
+
+\begin{lstlisting}[language=C, caption=Código C para probar shellcodes]
+// Flags de compilado: $ gcc -o shelltest shelltest.c -z execstack -m32
+/* Introducir la shellcode generada con msfvenom aqui : */
+char codigo[] = "";
+
+int main()
+{
+    (*(void(*)()) codigo)();
+    return 0;
+}
+\end{lstlisting}
+
+\subsubsection{Canarios en el stack}
+Añadir la flag de \acrshort{nx} no soluciona todos los posibles problemas que pudiera generar un \acrshort{bof}.
+Se inventaron nuevas técnicas como por ejemplo `ret2libc', donde se hace uso de las librerías standard del sistema para obtener ejecución de código remota.
+La técnica consiste en usar una llamada a la función `system' ubicada en la librería \acrshort{libc}, la cual si se le añade el argumento `/bin/sh' también incluido en la misma librería, habilita una consola dando control al usuario maligno sobre el programa.
+
+Para evitar que un \acrshort{bof} permita sustituir el registro \acrshort{eip}, se añade un valor al principio de la función a ejecutar con un valor aleatorio calculado en la inicialización del binario.
+Si en el momento anterior al \acrfull{ret} el valor no coincide con el inicial, el programa se para frecuentemente con un error del formato `***stack smashing detected***'.
+
+En el compilador \acrshort{gcc}, la opción para habilitar el canario es `-fstack-protector-strong'.
+Para comprobar el funcionamiento descrito se puede reusar el snippet \ref{snippet:simplebof}
+\subsubsection{Address Space Layout Randomization (ASLR)}
+Como medida adicional para evitar que una explotación sea satisfactoria se introdujo la aleatorización de las direcciones de memoria del binario.
+Cuando un binario se ejecuta, la dirección base de las librerías compartidas o del sistema cambian.
+Esta protección la gestiona el sistema operativo, se puede modificar su comportamiento mediante el fichero \path{/proc/sys/kernel/randomize_va_space}, un valor de 0 significa que está desactivado, un valor de 1 activa el \acrshort{aslr} y el valor 2 lo activa también en los segmentos de datos y la memoria gestionada con la función `brk()'.
+Esta técnica dificulta el uso de exploits del tipo `ret2libc'.
+\subsubsection{Position Independant Executable (PIE)}
+
 \subsection{Evasión de mitigaciones}
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
 \section{Soluciones a los retos}
