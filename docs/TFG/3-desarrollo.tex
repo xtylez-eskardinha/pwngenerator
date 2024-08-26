@@ -487,7 +487,15 @@ La técnica consiste en usar una llamada a la función `system' ubicada en la li
 
 Para evitar que un \acrshort{bof} permita sustituir el registro \acrshort{eip}, se añade un valor al principio de la función a ejecutar con un valor aleatorio calculado en la inicialización del binario.
 Si en el momento anterior al \acrfull{ret} el valor no coincide con el inicial, el programa se para frecuentemente con un error del formato `***stack smashing detected***'.
-
+Se puede tomar la siguiente figura como referencia:
+\FloatBarrier
+\begin{figure}
+    \centering                        
+    \includegraphics[width=0.5\textwidth]{images/stack-canary.png}
+    \caption{Ejemplo de un canario en el stack}
+    \label{fig:stack-canary}
+\end{figure}
+\FloatBarrier
 En el compilador \acrshort{gcc}, la opción para habilitar el canario es `-fstack-protector-strong'.
 Para comprobar el funcionamiento descrito se puede reusar el snippet \ref{snippet:simplebof}
 \subsubsection{Address Space Layout Randomization (ASLR)}
