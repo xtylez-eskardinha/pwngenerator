@@ -514,12 +514,15 @@ Si de alguna forma el usuario malicioso consigue una vulnerabilidad que le permi
 
 \subsubsection{Evasión de canario}
 En caso de que el usuario maligno disponga de una vulnerabilidad del tipo format string, podría aprovecharla para recuperar el valor del canario e inyectarlo en su payload evitando así modificar el valor del mismo.
+Es importante anotar que para que esto funcione, el leak debe proceder de la misma función de la que se pretende obtener el canario.
+% TODO EXAMPLE
 \subsubsection{Evasión de PIE} \label{subsub:pie}
 El objetivo principal para anular esta mitigación consiste en explotar una vulnerabilidad del tipo format string consiguiendo una dirección de memoria del stack.
 Esta dirección siempre se encontrará en un offset sobre la base.
 Además, las direcciones de memoria base del ejecutable siempre acabarán en `000', esto es debido a que lo que realmente se está aleatorizando en memoria son páginas que tienen un tamaño estándar de `0x1000'.
 
 Por ejemplo, si la función `main' está ubicada en la dirección `0x4894' y sabiendo que la posición relativa sobre la base es de `0x894', se concluye que la base del binario se ubicará en `0x4000'
+% TODO EXAMPLE
 \subsubsection{Evasión del ASLR}
 A diferencia del \acrshort{pie}, este mecanismo hace uso de las cabeceras \acrfull{plt} y \acrfull{got} del binario.
 Cuando se hace una llamada a una función externa de una librería compartida, el binario revisará la tabla \acrshort{plt} la cual enlaza con una dirección de la tabla \acrshort{got}.
@@ -533,6 +536,7 @@ Por lo tanto, se pueden dar dos situaciones diferentes para eludir la mitigació
         \item En caso de que \acrshort{pie} esté activado, se necesita aplicar el conocimiento adquirido en el punto anterior \ref{subsub:pie}.
     \end{itemize}
 \end{itemize}
+% TODO EXAMPLE
 
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
 
