@@ -413,7 +413,7 @@ Dependiendo del sistema operativo se usan unos registros u otros para compartir 
 
 Toda la información relacionada con la convención de llamadas de 64bit sobre linux se puede encontrar en el borrador publicado por la Linux Foundation \cite{x64asm}.
 
-\subsection{Vulnerabilidad tipo Format String}
+\subsection{Vulnerabilidad tipo Format String} \label{subsec:fmtstr}
 El bug de tipo format string fue descubierto a principios de los 2000.
 Al principio se consideró un bug, sin embargo, con el paso del tiempo se reconocieron los peligros que conllevaba este tipo de bug y pasó a considerarse una vulnerabilidad.
 
@@ -493,16 +493,49 @@ Para comprobar el funcionamiento descrito se puede reusar el snippet \ref{snippe
 \subsubsection{Address Space Layout Randomization (ASLR)}
 Como medida adicional para evitar que una explotación sea satisfactoria se introdujo la aleatorización de las direcciones de memoria del binario.
 Cuando un binario se ejecuta, la dirección base de las librerías compartidas o del sistema cambian.
-Esta protección la gestiona el sistema operativo, se puede modificar su comportamiento mediante el fichero \path{/proc/sys/kernel/randomize_va_space}, un valor de 0 significa que está desactivado, un valor de 1 activa el \acrshort{aslr} y el valor 2 lo activa también en los segmentos de datos y la memoria gestionada con la función `brk()'.
-Esta técnica dificulta el uso de exploits del tipo `ret2libc'.
+Esta protección la gestiona el sistema operativo y se puede modificar su comportamiento mediante el fichero \path{/proc/sys/kernel/randomize_va_space}.
+Un valor de 0 significa que está desactivado, un valor de 1 activa el \acrshort{aslr} y el valor 2 lo activa también en los segmentos de datos y la memoria gestionada con la función `brk()'.
+Esta técnica dificulta el uso de exploits del tipo `ret2libc' en binarios compilados con librerías dinámicas.
 \subsubsection{Position Independant Executable (PIE)}
 Esta medida aleatoriza la posición de memoria donde se carga el binario cada vez que se ejecuta.
-Para que el comportamiento del ejecutable no cambie las direcciones de memoria que usa son relativas en lugar de absolutas.
+Para que el comportamiento del ejecutable no cambie, las direcciones de memoria que se usan serán relativas en lugar de absolutas.
 \subsection{Evasión de mitigaciones}
+En esta sección se habla sobre cuales son las formas más comunes de evadir las mitigaciones permitiendo vulnerar el programa.
 Las mitigaciones pueden evitar que un pequeño fallo programático se convierta en crítico dificultando a los atacantes alterar el flujo del binario con repercusiones fatales.
-Sin embargo, como bien indica la definición de mitigaciones, estas no aseguran que la explotación sea imposible.
-En esta sección se habla sobre cuales son las formas más comunes de saltarse las mitigaciones permitiendo vulnerar el programa.
+Sin embargo, teniendo en cuenta la definición de mitigación, se sabe que estas no aseguran que la explotación sea imposible.
+
+La forma más común de eludir estas medidas es obteniendo direcciones de memoria del stack mediante una vulnerabilidad del tipo format string explicado en el punto \ref{subsec:fmtstr}.
+
+Entender cual es el formato de los binarios en Linux es de gran relevancia para conseguir evadir algunas de las mitigaciones.
+Esta información puede consultarse en el recurso online citado en el punto \cite{x64asm} de la bibliografía.
+
+\subsubsection{Evasión de NX}
+Si de alguna forma el usuario malicioso consigue una vulnerabilidad que le permita alterar el flujo de ejecución, ese usuario podría usar la técnica `ret2libc' apuntando a la función `mprotect' y habilitando el bit de ejecución en la sección del stack de interes.
+
+\subsubsection{Evasión de canario}
+En caso de que el usuario maligno disponga de una vulnerabilidad del tipo format string, podría aprovecharla para recuperar el valor del canario e inyectarlo en su payload evitando así modificar el valor del mismo.
+\subsubsection{Evasión de PIE} \label{subsub:pie}
+El objetivo principal para anular esta mitigación consiste en explotar una vulnerabilidad del tipo format string consiguiendo una dirección de memoria del stack.
+Esta dirección siempre se encontrará en un offset sobre la base.
+Además, las direcciones de memoria base del ejecutable siempre acabarán en `000', esto es debido a que lo que realmente se está aleatorizando en memoria son páginas que tienen un tamaño estándar de `0x1000'.
+
+Por ejemplo, si la función `main' está ubicada en la dirección `0x4894' y sabiendo que la posición relativa sobre la base es de `0x894', se concluye que la base del binario se ubicará en `0x4000'
+\subsubsection{Evasión del ASLR}
+A diferencia del \acrshort{pie}, este mecanismo hace uso de las cabeceras \acrfull{plt} y \acrfull{got} del binario.
+Cuando se hace una llamada a una función externa de una librería compartida, el binario revisará la tabla \acrshort{plt} la cual enlaza con una dirección de la tabla \acrshort{got}.
+Esta última tabla contiene la dirección de memoria real de la función a ejecutar.
+Por lo tanto, se pueden dar dos situaciones diferentes para eludir la mitigación:
+\begin{itemize}
+    \item La función a ejecutar existe en la \acrshort{plt}, se puede apuntar a esta dirección directamente para ejecutar lo deseado.
+    \item En caso de que no exista, se puede explotar la tabla \acrshort{got}.
+    \begin{itemize}
+        \item Si \acrshort{pie} está desactivado, se puede recuperar la dirección de memoria desde el mismo binario.
+        \item En caso de que \acrshort{pie} esté activado, se necesita aplicar el conocimiento adquirido en el punto anterior \ref{subsub:pie}.
+    \end{itemize}
+\end{itemize}
+
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
+
 \section{Soluciones a los retos}
 \subsection{Tutoriales}
 \subsection{Ejemplos de payloads}
