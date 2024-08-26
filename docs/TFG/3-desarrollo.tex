@@ -539,7 +539,105 @@ Por lo tanto, se pueden dar dos situaciones diferentes para eludir la mitigació
 % TODO EXAMPLE
 
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
+Las vulnerabilidades a inyectar se han dividido en diferentes categorías según la dificultad.
+Según se aumente la dificultad mayores serán las mitigaciones empleadas.
+\begin{itemize}
+    \item Nivel 0: El binario no presenta ningún tipo de seguridad.
+    \item Nivel 1: El binario presenta el bit \acrshort{nx} activado.
+    \item Nivel 2: El binario presenta canario y \acrshort{nx} activado.
+    \item Nivel 3: El binario presenta \acrshort{pie}, canario y \acrshort{nx}.
+    \item Nivel 4: El binario presenta \acrshort{aslr}, \acrshort{pie}, canario y \acrshort{nx}.
+\end{itemize}
+Las vulnerabilidades a la hora de escribir el proyecto consisten en transformaciones de inputs.
+Dependiendo de la dificultad posible inyección de vulnerabilidad tipo format string.
+Todas las vulnerabilidades inyectadas hacen uso de la función `strcpy' debido a que fuerza el \acrshort{bof} en la función esperada y con el comportamiento esperado.
 
+Las posibles funciones vulnerables se encuentran en el siguiente snippet de código:
+\begin{lstlisting}[language=C, caption=Posibles vulnerabilidades inyectadas]
+// Funcion ret2win
+void ret2win(){
+    system("/bin/sh");
+}
+// Vulnerabilidades con diferentes funciones
+void input_gets_bof(char *buf) {
+    char filler[64];
+    char buffer[64];
+    gets(buffer);
+    strcpy(buf, buffer);
+}
+
+void input_fgets_bof(char *buf){
+    char filler[64];
+    char buffer[64];
+    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
+    strcpy(buf, buffer);
+}
+
+void input_fgets_bof_canary(char *buf){
+    int canary = 0x20;
+    char filler[64];
+    char buffer[64];
+    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
+    if (canary != 0x20)
+        exit(127);
+    strcpy(buf, buffer);
+}
+
+void input_gets_bof_canary(char *buf) {
+    int canary = 0x20;
+    char filler[64];
+    char buffer[64];
+    gets(buffer);
+    if (canary != 0x20)
+        exit(127);
+    strcpy(buf, buffer);
+}
+
+void input_scanf_bof(char *buf) {
+    char filler[64];
+    char buffer[64];
+    scanf("%s", buffer);
+    strcpy(buf, buffer);
+}
+
+void input_scanf_bof_canary(char *buf) {
+    int canary = 0x20;
+    char filler[64];
+    char buffer[64];
+    scanf("%s", buffer);
+    if (canary != 0x20)
+        exit(127);
+    strcpy(buf, buffer);
+}
+
+
+void input_strcpy_bof(char *buf) {
+    char filler[64];
+    char buffer2[64];
+    fgets(buffer2, sizeof(buffer2), stdin);
+    strcpy(buf, buffer2);
+}
+
+void append_input_bof(char *buf) {
+    char filler[64];
+    char buffer[64];
+    scanf("%s", buffer);
+    strcat(buf, buffer);
+}
+// Leak, esta funcion no se inyecta directamente, unicamente se toma el cuerpo y se inyecta al principio de las funciones cuando la dificultad lo requiere
+void easy_leak() {
+    do
+    {
+        printf("\nBut first, I'll print what you type, take it as a gift: ");
+        char* init[32];
+        fgets(init, sizeof(init), stdin);
+        printf(init);
+        printf("\n");
+        printf("Now you can continue with what I asked you before :) \n");
+        /* code */
+    } while (0);
+}
+\end{lstlisting}
 \section{Soluciones a los retos}
 \subsection{Tutoriales}
 \subsection{Ejemplos de payloads}
