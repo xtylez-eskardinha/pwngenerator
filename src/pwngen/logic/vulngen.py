@@ -80,7 +80,7 @@ class VulnGen:
     def _test_args(self, fncall: c_ast.FuncCall, problem_scope: str) -> bool:
         func_descr = self._vulns._dangerous.get(fncall.name.name)
         if func_descr:
-            if func_descr['out']:
+            if func_descr['out'] >= 0:
                 buf_arg = fncall.args.exprs[func_descr['out']]
         if isinstance(buf_arg, c_ast.UnaryOp):
             buf_arg = buf_arg.expr

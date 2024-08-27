@@ -25,7 +25,7 @@ void input_fgets_bof_canary(char *buf){
     int canary = 0x20;
     char filler[64];
     char buffer[64];
-    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
+    fgets(buffer, sizeof(buffer) + sizeof(filler)*2, stdin);
     if (canary != 0x20)
         exit(127);
     strcpy(buf, buffer);
@@ -76,8 +76,8 @@ void append_input_bof(char *buf) {
 void easy_leak() {
     do
     {
+        char init[64];
         printf("\nBut first, I'll print what you type, take it as a gift: ");
-        char* init[32];
         fgets(init, sizeof(init), stdin);
         printf(init);
         printf("\n");
