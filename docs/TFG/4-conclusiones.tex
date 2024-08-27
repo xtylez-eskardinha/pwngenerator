@@ -1,1 +1,9 @@
-TODO
+En este proyecto se ha desarrollado un programa que permite la introducción de código en lenguaje C como entrada, y si se cumplen ciertas condiciones, devuelve el código fuente, el binario compilado y un texto explicativo sobre el proceso de resolución. El software se estructura en tres componentes principales: el procesamiento de código C, la inyección de vulnerabilidades y la generación del método de resolución.
+
+Durante el procesamiento del código, se ha demostrado que trabajar con un formato \acrfull{ast} facilita significativamente la gestión de las llamadas a funciones y permite la inyección nativa de definiciones de funciones, llamadas a funciones y código arbitrario en Python. Este enfoque ha simplificado el manejo del código fuente y ha mejorado la flexibilidad del software para diferentes aplicaciones.
+
+La inyección de vulnerabilidades, por otro lado, presentó desafíos notables debido a la variabilidad introducida por las optimizaciones del compilador, lo que puede llevar a comportamientos inesperados. Aunque el programa permite controlar la salida del código C, no garantiza un comportamiento idéntico tras compilaciones sucesivas, especialmente en vulnerabilidades del tipo ‘format string’. Esta variabilidad ha sido un obstáculo significativo al intentar generar tutoriales consistentes para la resolución de problemas, ya que la ubicación de los offsets puede cambiar entre compilaciones, dificultando la predicción y aprendizaje.
+
+A pesar de estas limitaciones, el software en su estado actual es una herramienta valiosa para usuarios con conocimientos básicos en la explotación de binarios. Les permite practicar y aprender sobre la explotación de ejecutables con fallas, incluso cuando todas las protecciones están activadas.
+El funcionamiento del programa ha sido verificado con varios códigos fuente, incluidos en la carpeta ‘examples’ del repositorio, que pueden ser utilizados por los usuarios como punto de partida para experimentar.
+Algunos ejemplos se han generado utilizando herramientas como ‘ChatGPT’ para evaluar la correcta mutación del código fuente en diferentes escenarios.

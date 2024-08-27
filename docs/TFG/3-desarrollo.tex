@@ -496,6 +496,9 @@ Se puede tomar la siguiente figura como referencia:
     \label{fig:stack-canary}
 \end{figure}
 \FloatBarrier
+Para poder identificar el canario en el stack de forma sencilla, suele estar ubicado en \acrshort{ebp} - `0xc' y acaba en un byte nulo.
+
+\FloatBarrier
 En el compilador \acrshort{gcc}, la opción para habilitar el canario es `-fstack-protector-strong'.
 Para comprobar el funcionamiento descrito se puede reusar el snippet \ref{snippet:simplebof}
 \subsubsection{Address Space Layout Randomization (ASLR)}
@@ -523,6 +526,8 @@ Si de alguna forma el usuario malicioso consigue una vulnerabilidad que le permi
 \subsubsection{Evasión de canario}
 En caso de que el usuario maligno disponga de una vulnerabilidad del tipo format string, podría aprovecharla para recuperar el valor del canario e inyectarlo en su payload evitando así modificar el valor del mismo.
 Es importante anotar que para que esto funcione, el leak debe proceder de la misma función de la que se pretende obtener el canario.
+
+Otra opción para eludir esta mitigación es mediante una vulnerabilidad del tipo format string, haciendo que esta modifique el valor en la \acrfull{got} de la función `\_\_stack\_chk\_fail' por otra que no repercuta en el flujo del ejecutable.
 % TODO EXAMPLE
 \subsubsection{Evasión de PIE} \label{subsub:pie}
 El objetivo principal para anular esta mitigación consiste en explotar una vulnerabilidad del tipo format string consiguiendo una dirección de memoria del stack.
@@ -577,7 +582,7 @@ void input_gets_bof(char *buf) {
 void input_fgets_bof(char *buf){
     char filler[64];
     char buffer[64];
-    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
+    fgets(buffer, sizeof(filler)*2 + sizeof(buffer), stdin);
     strcpy(buf, buffer);
 }
 
@@ -636,8 +641,8 @@ void append_input_bof(char *buf) {
 void easy_leak() {
     do
     {
+        char init[32];
         printf("\nBut first, I'll print what you type, take it as a gift: ");
-        char* init[32];
         fgets(init, sizeof(init), stdin);
         printf(init);
         printf("\n");
@@ -647,5 +652,9 @@ void easy_leak() {
 }
 \end{lstlisting}
 \section{Soluciones a los retos}
+Como uno de los objetivos del proyecto se ha propuesto entregar al usuario de la aplicación un tutorial sobre como solventar los problemas generados.
+
+Debido a que el proyecto está enfocado al ámbito educativo se ha pensado que la mejor solución es entregar plantillas paso a paso con el mecanismo de resolución esperado para el problema propuesto.
 \subsection{Tutoriales}
-\subsection{Ejemplos de payloads}
+
+\subsection{Ejemplos de plantillas}
