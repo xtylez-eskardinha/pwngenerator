@@ -248,8 +248,13 @@ class AstProcessor:
                 continue
         return returner
 
-    def get_var_fromid(self, id: c_ast.ID, scope: str = "") -> c_ast.Decl | None:
-        return self._locate_id(id, scope)
+    def get_var_fromid(self, id: c_ast.ID | c_ast.UnaryOp, scope: str = "") -> c_ast.Decl | None:
+        if isinstance(id, c_ast.UnaryOp):
+            return self._locate_id(id.expr, scope)
+        elif isinstance(id, c_ast.ID):
+            return self._locate_id(id, scope)
+        else:
+            return None
 
     def get_fn_def_args(self, funcdef: c_ast.FuncDef):
         return funcdef.decl.type.args.params

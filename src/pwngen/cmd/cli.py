@@ -54,8 +54,6 @@ class CLI:
             gcc_flags = generator.get_compiler_syntax()
             ast.save_c(f"{output}.c", gcc_flags)
             logger.info("Source code saved", output_file=f"{output}.c", compiler_flags=gcc_flags)
-            # ast.insert_compiler(f"{output}.c", gcc_flags)
-
             if self._args.get('compile'):
                 input_file = f"{output}.c"
                 logger.info("Compiling program", input_file=input_file, compiler_flags=gcc_flags)

@@ -74,8 +74,69 @@ class VulnGen:
         else:
             return False
 
-    def _adapt_format_args(self, fn_descr: dict, fndef: c_ast.FuncDef, args: c_ast.ExprList):
-        return
+    def _adapt_scanf_args(self, problem: Problem, fndef: c_ast.FuncDef, vuln_idx: int):
+        logger.info("Adapting scanf and format string...")
+        paramlist = []
+        array_param = fndef.decl.type.args.params[0]
+        args = problem.get_args()
+        for arg in args.exprs[1:]:
+            var = deepcopy(self._ast.get_var_fromid(arg, problem.get_fn_scope()))
+            if var.name in ("init", "filler", "buffer"):
+                var.name = f"buf_rand_{randint(1,200)}"
+            var_type = var.type
+            while isinstance(var_type, c_ast.TypeDecl):
+                var_type = var_type.type
+            if not var:
+                return
+            if isinstance(var.type, c_ast.ArrayDecl):
+
+                decl = deepcopy(array_param)
+                decl.name = var.name
+                decl.type.type.declname = var.name
+            else:
+                decl = c_ast.Decl(
+                    var.name,
+                    quals=[],
+                    align=[],
+                    storage=[],
+                    funcspec=[],
+                    init=[],
+                    bitsize=[],
+                    type=c_ast.PtrDecl(
+                        quals=[],
+                        type=c_ast.TypeDecl(
+                            declname=var.name,
+                            quals=[],
+                            align=None,
+                            type=c_ast.IdentifierType(
+                                names=var_type.names
+                            )
+                        )
+                    )
+                )
+            paramlist.append(decl)
+        paramlist[vuln_idx] = array_param
+        fncalls = self._ast.get_all_fncalls_fndef(fndef)
+        fncall = None
+        for fn in fncalls:
+            if fn.name.name == "scanf":
+                fncall = fn
+        fncall.args = deepcopy(problem.get_args())
+        for i, param in enumerate(fncall.args.exprs[1:]):
+            test_param = param
+            while isinstance(test_param, c_ast.UnaryOp):
+                test_param = test_param.expr
+            if isinstance(paramlist[i], c_ast.UnaryOp):
+                test_param = test_param.expr
+            if test_param.name in ("init", "filler", "buffer"):
+                test_param.name = paramlist[i].name
+            fncall.args.exprs[i+1] = test_param
+        vuln_param = fncall.args.exprs[vuln_idx+1]
+        while isinstance(vuln_param, c_ast.UnaryOp):
+            vuln_param = vuln_param.expr
+        vuln_param.name = "buffer"
+        logger.info("Scanf adapted!")
+        return c_ast.ParamList(params=paramlist)
 
     def _test_args(self, fncall: c_ast.FuncCall, problem_scope: str) -> bool:
         func_descr = self._vulns._dangerous.get(fncall.name.name)
@@ -90,14 +151,17 @@ class VulnGen:
     def _change_args(self, fncall: c_ast.FuncCall, fndef: c_ast.FuncDef) -> None:
         func_descr = self._vulns._dangerous.get(fncall.name.name)
         if func_descr:
+            if func_descr == "scanf":
+                del fncall.args.exprs[0]
+                return None
             if func_descr['args'] > 1:
                 fncall.args.exprs = [
                     fncall.args.exprs[func_descr['out']]
                 ]
             elif func_descr['args'] == -1:
                 fncall.args.exprs = fncall.args.exprs[func_descr['out']:]
-            if len(fncall.args.exprs) > 1:
-                self._adapt_format_args(func_descr, fndef, fncall.args.exprs) # type: ignore
+            # if len(fncall.args.exprs) > 1:
+            #     self._adapt_scanf_args(func_descr, fndef, fncall.args.exprs) # type: ignore
         return None
 
     def _change_vuln_bufsize(self, func_name: str):
@@ -119,40 +183,39 @@ class VulnGen:
             merged.append(text[-1])
         return merged
 
-    def _divide_fmtstr(
-            self,
-            problem: Problem
-            ) -> tuple[int, list[c_ast.FuncCall]] | tuple[int, None]:
-        returner = []
-        possible, text, fmt_str = problem.parse_fmt_str()
-        if not fmt_str:
-            return -1, None
-        vuln = choice(fmt_str)
-        idx = possible.index(vuln)
-        text_const = deepcopy(problem.get_args().exprs[0])
-        func_pre = deepcopy(problem)
-        func_post = deepcopy(problem)
-        pre_args = func_pre.get_args()
-        post_args = func_post.get_args()
-        pre_args.exprs = pre_args.exprs[1:idx+1]
-        if len(pre_args.exprs) != 0:
-            text_pre = deepcopy(text_const)
-            inserter = self._merge_fmtstr(text[:idx], possible[:idx])
-            text_pre.value = f'"{"".join(inserter)}"'
-            pre_args.exprs.insert(0, text_pre)
-            returner.append(func_pre.get_fncall())
-        post_args.exprs = post_args.exprs[idx+2:]
-        if len(post_args.exprs) != 0:
-            text_post = deepcopy(text_const)
-            inserter = self._merge_fmtstr(text[idx+1:], possible[idx+1:])
-            text_post.value = f'"{"".join(inserter)}"'
-            post_args.exprs.insert(0, text_post)
-            returner.append(func_post.get_fncall())
-        return idx, returner
-        # return args_copy.exprs.pop(idx+1)
-
-    def _generate_exprlist(self, args: list[c_ast.ID | c_ast.Constant]) -> c_ast.ExprList:
-        return c_ast.ExprList(exprs=args)
+    # def _divide_fmtstr(
+    #         self,
+    #         problem: Problem
+    #         ) -> tuple[int, list[c_ast.FuncCall]] | tuple[int, None]:
+    #     returner = []
+    #     possible, text, fmt_str = problem.parse_fmt_str()
+    #     if not fmt_str:
+    #         return -1, None
+    #     vuln = choice(fmt_str)
+    #     print(fmt_str, possible)
+    #     idx = possible.index(f"{vuln}")
+    #     self._adapt_scanf_args(problem=problem, )
+    #     # text_const = deepcopy(problem.get_args().exprs[0])
+    #     # func_pre = deepcopy(problem)
+    #     # func_post = deepcopy(problem)
+    #     # pre_args = func_pre.get_args()
+    #     # post_args = func_post.get_args()
+    #     # pre_args.exprs = pre_args.exprs[1:idx+1]
+    #     # if len(pre_args.exprs) != 0:
+    #     #     text_pre = deepcopy(text_const)
+    #     #     inserter = self._merge_fmtstr(text[:idx], possible[:idx])
+    #     #     text_pre.value = f'"{"".join(inserter)}"'
+    #     #     pre_args.exprs.insert(0, text_pre)
+    #     #     returner.append(func_pre.get_fncall())
+    #     # post_args.exprs = post_args.exprs[idx+2:]
+    #     # if len(post_args.exprs) != 0:
+    #     #     text_post = deepcopy(text_const)
+    #     #     inserter = self._merge_fmtstr(text[idx+1:], possible[idx+1:])
+    #     #     text_post.value = f'"{"".join(inserter)}"'
+    #     #     post_args.exprs.insert(0, text_post)
+    #     #     returner.append(func_post.get_fncall())
+    #     # return idx, returner
+    #     # return args_copy.exprs.pop(idx+1)
 
     def _generate_fncall_raw(self, fn: str, args: c_ast.ExprList | None) -> c_ast.FuncCall:
         fncall = c_ast.FuncCall(
@@ -207,9 +270,30 @@ class VulnGen:
         kind = problem.get_fn_name()
         fncall = problem.get_fncall()
         problem_scope = problem.get_fn_scope()
-        if not self._test_args(fncall, problem_scope):
+
+        if fncall.name.name != "scanf" and not self._test_args(fncall, problem_scope):
+            logger.warning("Problem has strange behaviour, avoiding...", scope=problem_scope, fncall=fncall)
             return ""
         new_func = self._func_generator(kind)
+        if problem.is_real_problem():
+            logger.info("Problem might not be a real problem, analyzing context")
+            prob_pos, prob_text, prob_fmtstr = problem.parse_fmt_str()
+            if not prob_fmtstr:
+                logger.warning("This problem isnt explotable...", fn_name=problem.get_fn_name(), args=problem.get_args())
+                return False
+            prob_scope = problem.get_fn_scope()
+            fn_idx = self._ast.locate_fncall(
+                problem.get_fncall(), prob_scope)
+            prob_args = problem.get_args()
+            prob_name = problem.get_fn_name()
+            vuln_idx = prob_pos.index(choice(prob_fmtstr))
+            prob_pos[vuln_idx] = "%s"
+            prob_args.exprs[0].value = f"\"{''.join(self._merge_fmtstr(prob_text, prob_pos))}\""
+            logger.info("Problem vulnerability index found", vuln_idx=vuln_idx)
+            # prob_args.exprs[0].value = f'"{prob_pos[vuln_idx]}"'
+            fndef_args = self._adapt_scanf_args(problem, new_func, vuln_idx)
+            new_func.decl.type.args = fndef_args
+        logger.debug("New func generated!", fn=new_func.decl.name)
         if not new_func:
             return ""
         self._ast.insert_fndef(new_func)
@@ -225,29 +309,6 @@ class VulnGen:
         return vuln_name
 
     def create_problem(self, problem: Problem):
-        if problem.is_real_problem():
-            logger.info("Problem might not be a real problem, analyzing context")
-            vuln_idx, new_problems = self._divide_fmtstr(problem)
-            if not new_problems:
-                logger.warning("This problem isnt explotable...", fn_name=problem.get_fn_name(), args=problem.get_args())
-                return False
-            logger.info("Problem vulnerability index and problems found", vuln_idx=vuln_idx, new_problems=new_problems)
-            prob_scope = problem.get_fn_scope()
-            fn_idx = self._ast.locate_fncall(
-                problem.get_fncall(), prob_scope)
-            prob_args = problem.get_args()
-            prob_name = problem.get_fn_name()
-            if vuln_idx == 0:
-                self._ast.insert_funccall(fn_idx+1, new_problems[0], prob_scope)
-            elif vuln_idx < len(prob_args.exprs)-2:
-                self._ast.insert_funccall(fn_idx, new_problems[0], prob_scope)
-                self._ast.insert_funccall(fn_idx+2, new_problems[1], prob_scope)
-            else:
-                self._ast.insert_funccall(fn_idx, new_problems[0], prob_scope)
-            prob_pos, prob_text, prob_fmtstr = problem.parse_fmt_str()
-            prob_args.exprs[0].value = f'"{prob_pos[vuln_idx]}"'
-            del prob_args.exprs[vuln_idx+2:]
-            del prob_args.exprs[1:vuln_idx+1]
         return self._create_vuln(problem)
 
     def inject_vulns(self):
