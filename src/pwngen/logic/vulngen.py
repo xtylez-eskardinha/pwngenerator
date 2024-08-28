@@ -57,20 +57,26 @@ class VulnGen:
         else:
             return deepcopy(danger[f'input_{kind}_{vuln_kind}_canary'])
 
+    def _get_bufsize(self, orig_buff: c_ast.ID | c_ast.UnaryOp, scope: str) -> tuple[int, int] | None:
+        size = None
+        if isinstance(orig_buff, c_ast.UnaryOp):
+            orig_buff = orig_buff.expr
+        out_var = self._ast.get_var_fromid(orig_buff, scope) # type: ignore
+        if isinstance(out_var, c_ast.Decl):
+            if isinstance(out_var.type, c_ast.ArrayDecl):
+                size = self._ast.get_arraydecl_size(out_var, scope)[-1]
+        return size
+
     def _set_orig_bufsize(
             self,
             orig_buff: c_ast.ID | c_ast.UnaryOp,
-            orig_fn_scope: str,
+            orig_scope: str,
             dest_fndef: str,
             ):
-        if isinstance(orig_buff, c_ast.UnaryOp):
-            orig_buff = orig_buff.expr
-        out_var = self._ast.get_var_fromid(orig_buff, orig_fn_scope) # type: ignore
-        if isinstance(out_var, c_ast.Decl):
-            if isinstance(out_var.type, c_ast.ArrayDecl):
-                size = self._ast.get_arraydecl_size(out_var, orig_fn_scope)[-1]
-                self._ast.change_stack_buffsize("buffer", size[0], size[1], dest_fndef)
-                return True
+        size = self._get_bufsize(orig_buff, orig_scope)
+        if size:
+            self._ast.change_stack_buffsize("buffer", size[0], size[1], dest_fndef)
+            return True
         else:
             return False
 
@@ -164,8 +170,13 @@ class VulnGen:
             #     self._adapt_scanf_args(func_descr, fndef, fncall.args.exprs) # type: ignore
         return None
 
-    def _change_vuln_bufsize(self, func_name: str):
-        self._ast.change_stack_buffsize("filler", 0, randint(2**6, 2**10), func_name)
+    def _change_vuln_bufsize(self, func_name: str, buf_arg: c_ast.ID | c_ast.UnaryOp, old_scope: str):
+        size = self._get_bufsize(buf_arg, old_scope)
+        if not size:
+            return False
+        min = size[1]
+        max = (size[1] + 8) * 2
+        self._ast.change_stack_buffsize("filler", 0, randint(min, max), func_name)
 
     def _swap_funcs(self, fncall: c_ast.FuncCall, fndef: c_ast.FuncDef):
         fncall.name.name = fndef.decl.name
@@ -303,7 +314,7 @@ class VulnGen:
         # if fncall.name.name == "scanf":
         #     buf_arg = fncall.args.exprs[1]
         self._swap_funcs(fncall, new_func)
-        self._change_vuln_bufsize(new_func.decl.name)
+        self._change_vuln_bufsize(new_func.decl.name, buf_arg, problem.get_fn_scope())
         self._set_orig_bufsize(buf_arg, problem_scope, new_func.decl.name)
         # logger.debug("Debugging vuln", )
         return vuln_name
@@ -321,7 +332,7 @@ class VulnGen:
         self._difficulty = level
 
     def get_compiler_syntax(self, data_model: str = "32") -> list[str]:
-        returner = [f"-m{data_model}"]
+        returner = [f"-m{data_model}", "-O0"]
         if self._difficulty > 3:
             returner.append("-fstack-protector-strong")
             returner.append("-pie")

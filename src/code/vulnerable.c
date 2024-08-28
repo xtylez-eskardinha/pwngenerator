@@ -11,59 +11,69 @@ void input_gets_bof(char *buf) {
     char filler[64];
     char buffer[64];
     gets(buffer);
-    strcpy(buf, buffer);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_fgets_bof(char *buf){
     char filler[64];
     char buffer[64];
     fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
-    strcpy(buf, buffer);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_fgets_bof_canary(char *buf){
-    int canary = 0x20;
+    int canary = 0x42;
     char filler[64];
     char buffer[64];
     fgets(buffer, sizeof(buffer) + sizeof(filler)*2, stdin);
-    if (canary != 0x20)
-        exit(127);
-    strcpy(buf, buffer);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_gets_bof_canary(char *buf) {
-    int canary = 0x20;
+    int canary = 0x42;
     char filler[64];
     char buffer[64];
     gets(buffer);
-    if (canary != 0x20)
-        exit(127);
-    strcpy(buf, buffer);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_scanf_bof(char *buf) {
     char filler[64];
     char buffer[64];
     scanf("%s", buffer);
-    strcpy(buf, buffer);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_scanf_bof_canary(char *buf) {
-    int canary = 0x20;
+    int canary = 0x42;
     char filler[64];
     char buffer[64];
     scanf("%s", buffer);
-    if (canary != 0x20)
-        exit(127);
-    strcpy(buf, buffer);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 
 void input_strcpy_bof(char *buf) {
     char filler[64];
     char buffer2[64];
-    fgets(buffer2, sizeof(buffer2), stdin);
-    strcpy(buf, buffer2);
+    fgets(buffer2, sizeof(filler)*2 + sizeof(buffer2), stdin);
+    strncpy(buf, buffer2, sizeof(buffer2));
+}
+
+void input_strcpy_bof_canary(char *buf) {
+    int canary = 0x42;
+    char filler[64];
+    char buffer2[64];
+    fgets(buffer2, sizeof(filler)*2 + sizeof(buffer2), stdin);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer2, sizeof(buffer2));
 }
 
 void append_input_bof(char *buf) {
@@ -76,8 +86,8 @@ void append_input_bof(char *buf) {
 void easy_leak() {
     do
     {
-        char init[64];
-        printf("\nBut first, I'll print what you type, take it as a gift: ");
+        char init[16];
+        printf("\nBut first, I'll print what you type, max 16 bytes, take it as a gift: ");
         fgets(init, sizeof(init), stdin);
         printf(init);
         printf("\n");
