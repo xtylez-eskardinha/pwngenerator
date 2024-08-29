@@ -231,7 +231,7 @@ void input_66(char *buf){
   char filler[837];
   char buffer[32];
   scanf("%s", buffer);
-  strcpy(buf, buffer);
+  strcat(buf, buffer);
 }
 
 void main(){
@@ -587,7 +587,7 @@ Cuanto más se aumente la dificultad, mayores serán las mitigaciones empleadas.
 \end{itemize}
 Las vulnerabilidades presentes durante la elaboración del proyecto se centran en las transformaciones de inputs.
 Dependiendo del nivel de dificultad, es posible la inyección de vulnerabilidades del tipo format string.
-Todas las vulnerabilidades inyectadas hacen uso de la función `strcpy' debido a que fuerza el \acrshort{bof} en la función esperada y con el comportamiento previsto.
+Todas las vulnerabilidades inyectadas hacen uso de la función `strcat' debido a que fuerza el \acrshort{bof} en la función esperada y con el comportamiento previsto.
 
 Las posibles funciones vulnerables se encuentran en el siguiente snippet de código:
 \begin{lstlisting}[language=C, caption=Posibles vulnerabilidades inyectadas]
@@ -600,14 +600,14 @@ void input_gets_bof(char *buf) {
     char filler[64];
     char buffer[64];
     gets(buffer);
-    strncpy(buf, buffer, sizeof(buffer));
+    strcat(buf, buffer);
 }
 
 void input_fgets_bof(char *buf){
     char filler[64];
     char buffer[64];
     fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
-    strncpy(buf, buffer, sizeof(buffer));
+    strcat(buf, buffer);
 }
 
 void input_fgets_bof_canary(char *buf){
@@ -617,7 +617,7 @@ void input_fgets_bof_canary(char *buf){
     fgets(buffer, sizeof(buffer) + sizeof(filler)*2, stdin);
     if (canary != 0x42)
         exit(139);
-    strncpy(buf, buffer, sizeof(buffer));
+    strcat(buf, buffer);
 }
 
 void input_gets_bof_canary(char *buf) {
@@ -627,14 +627,14 @@ void input_gets_bof_canary(char *buf) {
     gets(buffer);
     if (canary != 0x42)
         exit(139);
-    strncpy(buf, buffer, sizeof(buffer));
+    strcat(buf, buffer);
 }
 
 void input_scanf_bof(char *buf) {
     char filler[64];
     char buffer[64];
     scanf("%s", buffer);
-    strncpy(buf, buffer, sizeof(buffer));
+    strcat(buf, buffer);
 }
 
 void input_scanf_bof_canary(char *buf) {
@@ -644,25 +644,25 @@ void input_scanf_bof_canary(char *buf) {
     scanf("%s", buffer);
     if (canary != 0x42)
         exit(139);
-    strncpy(buf, buffer, sizeof(buffer));
+    strcat(buf, buffer);
 }
 
 
 void input_strcpy_bof(char *buf) {
     char filler[64];
-    char buffer2[64];
-    fgets(buffer2, sizeof(filler)*2 + sizeof(buffer2), stdin);
-    strncpy(buf, buffer2, sizeof(buffer2));
+    char buffer[64];
+    fgets(buffer, sizeof(filler)*2 + sizeof(buffer), stdin);
+    strcat(buf, buffer);
 }
 
 void input_strcpy_bof_canary(char *buf) {
     int canary = 0x42;
     char filler[64];
-    char buffer2[64];
-    fgets(buffer2, sizeof(filler)*2 + sizeof(buffer2), stdin);
+    char buffer[64];
+    fgets(buffer, sizeof(filler)*2 + sizeof(buffer), stdin);
     if (canary != 0x42)
         exit(139);
-    strncpy(buf, buffer2, sizeof(buffer2));
+    strcat(buf, buffer);
 }
 
 void append_input_bof(char *buf) {
@@ -671,7 +671,8 @@ void append_input_bof(char *buf) {
     scanf("%s", buffer);
     strcat(buf, buffer);
 }
-// Estas funciones de leak no se inyectan directamente, dependen de las condiciones de seguridad
+
+// Leak functions, not always injected
 void easy_leak() {
     do {
         printf("system: %p\n", system);
@@ -780,7 +781,7 @@ print("Y ahora lo ejecutamos con: run")
 print("Primero vamos a calcular el offset al registro EIP, para ello necesitamos ir a la funcion vulnerable e introducir un payload ciclico, por ejemplo:")
 print(solver.gen_cyclic(120))
 print("Cuando lo introduzcas en la funcion vulnerable, dependiendo de las mitigaciones habilitadas, el resultado podría ser diferente")
-print("Tambien es importante no pasarse con el tamaño del cyclic, en caso de que se rompa el puntero a buf strcpy podría fallar")
+print("Tambien es importante no pasarse con el tamaño del cyclic, en caso de que se rompa el puntero a buf strcat podría fallar")
 print("Si la función tiene leak con format string, introduce el parametro en la segunda funcion de input")
 print("Al continuar el programa deberia haber fallado, en caso de que no sea asi, la longitud del payload no fue suficiente, intentalo con otro mas largo!")
 print("Cual es el valor que tienes en el EIP? Puedes usar el comando 'bt' para ver el callstack, busca el valor justo despues de la funcion de input")
@@ -797,7 +798,7 @@ falso_canario = int(input("Cual es el offset del falso canario? "))
 \begin{lstlisting}[language=Python, caption=Plantilla canario real]
 print("El binario tiene un canario real, sigue los siguientes pasos!")
 leak_fn = input("Cual es la función que tiene el leak?? ")
-print("Primero vas a sacar el offset en el buffer overflow hasta el canario, necesitas establecer un breakpoint antes de terminar la función, usa: 'b strncpy'")
+print("Primero vas a sacar el offset en el buffer overflow hasta el canario, necesitas establecer un breakpoint antes de terminar la función, usa: 'b strcat'")
 print("Ahora necesitas inyectar el código cíclico antes generado para poder calcular offsets")
 print("En cuanto llegue al breakpoint, vas a revisar el valor del canario, este se úbica en la dirección $ebp - 0xc, usa el siguiente comando: 'x/x $ebp - 0xc'")
 canary_offset = int(input("Cual es el valor que tiene esa dirección? "), 16)
