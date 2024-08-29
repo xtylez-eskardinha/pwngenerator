@@ -1,10 +1,9 @@
-% !TEX root = main.tex
-
-\documentclass[12pt, a4paper, openany]{book}
+\documentclass[12pt, a4paper, hidelinks]{book}
 \renewcommand{\chaptername}{Capítulo}
 \usepackage[utf8]{inputenc}
 \usepackage{csquotes}
 \usepackage[spanish]{babel}
+\usepackage{pdfpages}
 \usepackage[
 backend=biber,
 style=alphabetic,
@@ -68,7 +67,21 @@ style=ieee
 }
 
 \lstset{style=mystyle}
+\lstset{ 
+literate= {á}{{\'a}}1 
+    {é}{{\'e}}1 
+    {í}{{\'i}}1 
+    {ó}{{\'o}}1 
+    {ú}{{\'u}}1
+    {ñ}{{\~n}}1
+}
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=10000
+\hbadness=10000
 \begin{document}
+\includepdf[pages={-},fitpaper,rotateoversize]{portada.pdf}
+\nobreak
 \include{0-resumen}
 \printglossary[type=\acronymtype]
 \tableofcontents
@@ -79,4 +92,5 @@ title={Referencias}
 ]
 \listoffigures
 \lstlistoflistings
+\include{apendice}
 \end{document}

