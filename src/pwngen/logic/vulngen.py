@@ -40,14 +40,14 @@ class VulnGen:
         self._difficulty = min(difficulty, 5)
         self._inject_leak = difficulty > 2 or leak
 
-    def _func_generator(self, kind: str) -> c_ast.FuncDef:
+    def _func_generator(self, kind: str, fncall = None) -> c_ast.FuncDef:
         danger = self._vulns.get_vuln_fndefs()
         vuln_kinds = self._vulns.get_vulnerability_types()
         vuln_kind = ""
         if kind == "ret2win":
             return danger["ret2win"]
-        elif kind == "easy_leak":
-            return danger["easy_leak"]
+        elif kind == "leak":
+            return danger["easy_leak"] if self._difficulty < 4 else danger["hard_leak"]
         for possible in vuln_kinds:
             if kind in vuln_kinds[possible]:
                 vuln_kind = possible
@@ -263,8 +263,10 @@ class VulnGen:
             self._ast.insert_fndef(ret2win)
             logger.info("ret2win injected!")
         elif self._inject_leak:
-            printf_leak_origin = self._func_generator("easy_leak")
+            printf_leak_origin = self._func_generator("leak")
             printf_leak_call = printf_leak_origin.body.block_items[0]
+            if self._difficulty < 4:
+                printf_leak_call.stmt.block_items[1].args.exprs[1].name = modified[0]
             # printf_args = c_ast.Constant(
             #     type='string', value='Here you have a gift: %x %x %x %x %x %x %x %x %x %x %x %x\n')
             # self._ast.insert_fndef(printf_leak)
@@ -332,18 +334,17 @@ class VulnGen:
         self._difficulty = level
 
     def get_compiler_syntax(self, data_model: str = "32") -> list[str]:
-        returner = [f"-m{data_model}", "-O0"]
-        if self._difficulty > 3:
-            returner.append("-fstack-protector-strong")
+        returner = [f"-m{data_model}", "-O0" , "-D_FORTIFY_SOURCE=0"]
+        # if self._difficulty > 3:
+        #     returner.append("-fstack-protector")
+        #     returner.append("-pie")
+        #     returner.append("-znoexecstack")
+        if self._difficulty > 2:
+            returner.append("-fstack-protector")
             returner.append("-pie")
             returner.append("-znoexecstack")
-        elif self._difficulty > 2:
-            returner.append("-fstack-protector-strong")
-            returner.append("-pie")
-            returner.append("-znoexecstack")
-            returner.append("-static")
         elif self._difficulty > 1:
-            returner.append("-fstack-protector-strong")
+            returner.append("-fstack-protector")
             returner.append("-no-pie")
             returner.append("-static")
         elif self._difficulty > 0:

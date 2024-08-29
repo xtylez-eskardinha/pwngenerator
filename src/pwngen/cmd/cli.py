@@ -3,6 +3,7 @@ from pwngen.logic.vulngen import VulnGen
 from pwngen.parsers.ast import AstProcessor
 from pwngen.pwn.exploit import Exploit
 from pwngen.pwn.compiler import Compiler
+from pwngen.pwn.solutions import Template
 from argparse import Namespace
 from typing import Any
 import random
@@ -60,6 +61,10 @@ class CLI:
                 compiler = Compiler(args=gcc_flags, c_input=input_file, output=output)
                 compiler.compile()
                 logger.info("Program compiled", output_file=f"{output}.o")
+            logger.info("Generating helper template...")
+            helper = Template(f"{output}", self._args['difficulty'])
+            helper.gen_example()
+            logger.info("Helper template generated!")
             return 0
         except Exception as e:
             print("Error", e)
