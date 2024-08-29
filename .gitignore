@@ -169,3 +169,4 @@ docs/TFG/*
 !docs/TFG/*.bib
 !docs/TFG/.latexmkrc
 !docs/TFG/images
+!docs/TFG/portada.pdf
